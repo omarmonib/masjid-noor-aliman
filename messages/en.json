@@ -1,0 +1,29 @@
+{
+  "nav": {
+    "home": "Home",
+    "quran": "Quran",
+    "hadith": "Hadith",
+    "adhkar": "Adhkar",
+    "prayer": "Prayer Times",
+    "radio": "Radio",
+    "mosque": "Mosque",
+    "donate": "Donate",
+    "login": "Login",
+    "register": "Register"
+  },
+  "home": {
+    "hero_title": "Masjid Noor Al-Iman",
+    "hero_subtitle": "Belbeis — Al-Sharqia",
+    "next_prayer": "Next Prayer",
+    "daily_verse": "Verse of the Day",
+    "daily_hadith": "Hadith of the Day"
+  },
+  "prayer": {
+    "fajr": "Fajr",
+    "sunrise": "Sunrise",
+    "dhuhr": "Dhuhr",
+    "asr": "Asr",
+    "maghrib": "Maghrib",
+    "isha": "Isha"
+  }
+}

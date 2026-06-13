@@ -1,0 +1,162 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String    @id @default(cuid())
+  name        String
+  email       String    @unique
+  password    String
+  role        Role      @default(MEMBER)
+  locale      String    @default("ar")
+  createdAt   DateTime  @default(now())
+  deletedAt   DateTime?
+
+  enrollments MemorizationEnrollment[]
+  donations   Donation[]
+  bookmarks   Bookmark[]
+  posts       Post[]
+}
+
+enum Role {
+  MEMBER
+  EDITOR
+  ADMIN
+}
+
+model Post {
+  id          String    @id @default(cuid())
+  titleAr     String
+  titleEn     String?
+  bodyAr      String
+  bodyEn      String?
+  type        PostType  @default(NEWS)
+  slug        String    @unique
+  authorId    String
+  author      User      @relation(fields: [authorId], references: [id])
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  deletedAt   DateTime?
+}
+
+enum PostType {
+  NEWS
+  ANNOUNCEMENT
+  KHUTBAH
+}
+
+model Event {
+  id            String   @id @default(cuid())
+  titleAr       String
+  titleEn       String?
+  descriptionAr String?
+  startDatetime DateTime
+  endDatetime   DateTime?
+  location      String?
+  imageUrl      String?
+  createdAt     DateTime @default(now())
+}
+
+model MemorizationPlan {
+  id           String   @id @default(cuid())
+  nameAr       String
+  nameEn       String?
+  durationDays Int
+  pagesPerDay  Int
+  createdAt    DateTime @default(now())
+
+  enrollments  MemorizationEnrollment[]
+}
+
+model MemorizationEnrollment {
+  id          String    @id @default(cuid())
+  userId      String
+  planId      String
+  user        User      @relation(fields: [userId], references: [id])
+  plan        MemorizationPlan @relation(fields: [planId], references: [id])
+  startDate   DateTime
+  currentPage Int       @default(1)
+  streak      Int       @default(0)
+  completedAt DateTime?
+
+  sessions    MemorizationSession[]
+}
+
+model MemorizationSession {
+  id             String   @id @default(cuid())
+  enrollmentId   String
+  enrollment     MemorizationEnrollment @relation(fields: [enrollmentId], references: [id])
+  date           DateTime @default(now())
+  pagesMemorized Int
+  notes          String?
+}
+
+model Campaign {
+  id           String     @id @default(cuid())
+  titleAr      String
+  titleEn      String?
+  goalAmount   Decimal
+  raisedAmount Decimal    @default(0)
+  deadline     DateTime?
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+
+  donations    Donation[]
+}
+
+model Donation {
+  id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  campaignId  String?
+  campaign    Campaign? @relation(fields: [campaignId], references: [id])
+  amount      Decimal
+  paymentRef  String?
+  status      DonationStatus @default(PENDING)
+  createdAt   DateTime @default(now())
+}
+
+enum DonationStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+model Adhkar {
+  id            String   @id @default(cuid())
+  textAr        String
+  transliteration String?
+  translation   String?
+  category      AdhkarCategory
+  repetitions   Int      @default(1)
+  source        String?
+}
+
+enum AdhkarCategory {
+  MORNING
+  EVENING
+  SLEEP
+  AFTER_PRAYER
+  GENERAL
+}
+
+model Bookmark {
+  id          String       @id @default(cuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id])
+  type        BookmarkType
+  referenceId String
+  createdAt   DateTime     @default(now())
+}
+
+enum BookmarkType {
+  VERSE
+  HADITH
+  ADHKAR
+}
