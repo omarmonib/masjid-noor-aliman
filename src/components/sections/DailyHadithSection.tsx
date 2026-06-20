@@ -17,11 +17,15 @@ export default function DailyHadithSection({ hadith, locale }: Props) {
           <p className="text-gold font-arabic text-sm tracking-widest mb-2">
             ✦ {isAr ? "حديث اليوم" : "Hadith of the Day"} ✦
           </p>
+
           <div className="w-16 h-0.5 bg-gold/40 mx-auto" />
         </div>
 
         {/* Hadith card */}
         <div className="relative bg-white/5 border border-white/10 rounded-3xl overflow-hidden backdrop-blur-sm">
+          <p className="text-center text-white/30 text-lg font-arabic mt-6">
+            {isAr ? "قال رسول الله ﷺ" : "The Prophet ﷺ said"}
+          </p>
           {/* Quote mark */}
           <div className="absolute top-6 right-8 text-gold/20 font-arabic text-8xl leading-none select-none">
             &quot;
@@ -50,11 +54,6 @@ export default function DailyHadithSection({ hadith, locale }: Props) {
             </div>
           </div>
         </div>
-
-        {/* Bottom note */}
-        <p className="text-center text-white/30 text-xs font-arabic mt-6">
-          {isAr ? "قال رسول الله ﷺ" : "The Prophet ﷺ said"}
-        </p>
       </div>
     </section>
   );

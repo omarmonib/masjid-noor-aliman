@@ -8,6 +8,9 @@ const nextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "**.quran.com" },
       { protocol: "https", hostname: "**.everyayah.com" },
+      { protocol: "https", hostname: "www.searchtruth.com" },
+      { protocol: "https", hostname: "static.qurancdn.com" },
+      { protocol: "https", hostname: "cdn.islamic.network" },
     ],
   },
 };
