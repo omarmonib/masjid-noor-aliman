@@ -1,22 +1,16 @@
 import { NextIntlClientProvider } from "next-intl";
-import { getMessages } from "next-intl/server";
+import { getMessages, setRequestLocale } from "next-intl/server";
 import { Cairo, Amiri, Inter } from "next/font/google";
 import Navbar from "@/components/layout/Navbar";
-import "../globals.css";
+import SessionWrapper from "@/components/auth/SessionWrapper";
 
-const cairo = Cairo({
-  subsets: ["arabic", "latin"],
-  variable: "--font-cairo",
-});
+const cairo = Cairo({ subsets: ["arabic", "latin"], variable: "--font-cairo" });
 const amiri = Amiri({
   subsets: ["arabic"],
   weight: ["400", "700"],
   variable: "--font-amiri",
 });
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-});
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export default async function LocaleLayout({
   children,
@@ -26,18 +20,21 @@ export default async function LocaleLayout({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
+  setRequestLocale(locale);
   const messages = await getMessages();
 
   return (
-    <html lang={locale} dir={locale === "ar" ? "rtl" : "ltr"}>
-      <body
-        className={`${cairo.variable} ${amiri.variable} ${inter.variable} bg-surface antialiased`}
-      >
-        <NextIntlClientProvider messages={messages}>
+    <NextIntlClientProvider messages={messages}>
+      <SessionWrapper>
+        <div
+          className={`${cairo.variable} ${amiri.variable} ${inter.variable} min-h-screen bg-surface`}
+          dir={locale === "ar" ? "rtl" : "ltr"}
+          style={{ fontFamily: "var(--font-cairo), sans-serif" }}
+        >
           <Navbar locale={locale} />
           {children}
-        </NextIntlClientProvider>
-      </body>
-    </html>
+        </div>
+      </SessionWrapper>
+    </NextIntlClientProvider>
   );
 }
