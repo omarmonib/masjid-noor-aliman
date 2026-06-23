@@ -1,58 +1,100 @@
-import PrayerTimesWidget from "@/components/widgets/PrayerTimesWidget";
+"use client";
+
+import Link from "next/link";
+import { PrayerTimesWidget } from "@/components/widgets/PrayerTimesWidget";
 
 export default function Hero({ locale }: { locale: string }) {
   const isAr = locale === "ar";
 
   return (
-    <section className="relative bg-gradient-to-br from-[#0D3D28] via-[#1B6B4A] to-[#2d8a62] min-h-[90vh] flex items-center overflow-hidden">
+    <section
+      className="relative min-h-screen flex flex-col overflow-hidden"
+      style={{
+        background:
+          "linear-gradient(135deg, #0D3D28 0%, #1B6B4A 60%, #0D3D28 100%)",
+      }}
+    >
+      {/* Decorative dots pattern */}
       <div
         className="absolute inset-0 opacity-5"
         style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+          backgroundImage: `radial-gradient(circle at 2px 2px, white 1px, transparent 0)`,
+          backgroundSize: "40px 40px",
         }}
       />
 
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-20">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          <div className={`text-white ${isAr ? "text-right" : "text-left"}`}>
-            <p className="font-arabic text-2xl text-[#C9A84C] mb-6 opacity-90">
-              بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
-            </p>
+      {/* Decorative circles */}
+      <div
+        className="absolute top-20 left-10 w-72 h-72 rounded-full opacity-5 blur-3xl"
+        style={{ background: "#C9A84C" }}
+      />
+      <div
+        className="absolute bottom-40 right-10 w-56 h-56 rounded-full opacity-5 blur-3xl"
+        style={{ background: "#C9A84C" }}
+      />
 
-            <h1 className="font-arabic text-5xl lg:text-6xl font-bold leading-tight mb-4">
-              مسجد نور الإيمان
-            </h1>
+      {/* Main hero content — centered */}
+      <div className="relative z-10 flex-1 flex items-center justify-center px-4 py-20">
+        <div className="text-center text-white max-w-3xl mx-auto">
+          {/* Bismillah */}
+          <p className="font-arabic text-[#C9A84C] text-2xl mb-6 leading-loose">
+            بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
+          </p>
 
-            <p className="text-xl text-white/80 font-arabic mb-2">
-              بلبيس — محافظة الشرقية
-            </p>
+          {/* Mosque name */}
+          <h1 className="font-arabic text-5xl md:text-7xl font-bold mb-4 leading-tight">
+            {isAr ? "مسجد نور الإيمان" : "Masjid Noor Al-Iman"}
+          </h1>
 
-            <div className="w-24 h-1 bg-[#C9A84C] my-6 rounded-full" />
+          {/* Location */}
+          <p className="font-arabic text-white/70 text-lg mb-4">
+            {isAr ? "بلبيس — محافظة الشرقية" : "Belbeis — Al-Sharqia, Egypt"}
+          </p>
 
-            <p className="text-white/70 font-arabic text-lg leading-relaxed mb-8">
-              منارة للعلم والإيمان في قلب بلبيس — نسعى لخدمة المجتمع وتعليم
-              القرآن الكريم والسنة النبوية الشريفة
-            </p>
-
-            <div className="flex flex-wrap gap-4">
-              <a
-                href={`/${locale}/quran`}
-                className="bg-[#C9A84C] text-[#0D3D28] font-arabic font-bold px-6 py-3 rounded-xl hover:opacity-90 transition-opacity"
-              >
-                اقرأ القرآن الكريم
-              </a>
-
-              <a
-                href={`/${locale}/prayer-times`}
-                className="border-2 border-white/40 text-white font-arabic font-medium px-6 py-3 rounded-xl hover:bg-white/10 transition-colors"
-              >
-                مواقيت الصلاة
-              </a>
-            </div>
+          {/* Divider */}
+          <div className="flex items-center justify-center gap-3 mb-6">
+            <div className="w-16 h-px bg-[#C9A84C]/50" />
+            <div className="w-2 h-2 rounded-full bg-[#C9A84C]" />
+            <div className="w-16 h-px bg-[#C9A84C]/50" />
           </div>
 
-          <div className="w-full max-w-sm mx-auto lg:mx-0 lg:ms-auto">
-            <PrayerTimesWidget locale={locale} />
+          {/* Description */}
+          <p className="font-arabic text-white/80 text-lg leading-relaxed mb-10 max-w-xl mx-auto">
+            {isAr
+              ? "منارة للعلم والإيمان في قلب بلبيس — نسعى لخدمة المجتمع وتعليم القرآن الكريم والسنة النبوية الشريفة"
+              : "A beacon of knowledge and faith in the heart of Belbeis"}
+          </p>
+          {/* CTAs */}
+          <div className="flex flex-wrap gap-4 justify-center">
+            <Link
+              href={`/${locale}/prayer-times`}
+              className="font-arabic px-8 py-3.5 rounded-xl border-2 border-white/30 text-white hover:bg-white/10 transition-all font-medium"
+            >
+              {isAr ? "مواقيت الصلاة" : "Prayer Times"}
+            </Link>
+            <Link
+              href={`/${locale}/quran`}
+              className="font-arabic px-8 py-3.5 rounded-xl font-medium transition-all"
+              style={{
+                background: "linear-gradient(to right, #C9A84C, #E8C56A)",
+                color: "#0D3D28",
+              }}
+            >
+              {isAr ? "اقرأ القرآن الكريم" : "Read Quran"}
+            </Link>
+          </div>
+        </div>
+        {/* Prayer times widget — bottom left, glassmorphism style */}
+        <div className="relative z-10 px-4 pb-6">
+          <div
+            className="max-w-xs rounded-2xl p-5 border border-white/10"
+            style={{
+              background: "rgba(0,0,0,0.25)",
+              backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
+            }}
+          >
+            <PrayerTimesWidget locale={locale} compact />
           </div>
         </div>
       </div>

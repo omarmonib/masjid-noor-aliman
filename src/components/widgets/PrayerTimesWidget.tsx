@@ -2,132 +2,205 @@
 
 import { useEffect, useState } from "react";
 import { Coordinates, CalculationMethod, PrayerTimes, Prayer } from "adhan";
-
-const PRAYERS = [
-  { key: "fajr", labelAr: "الفجر", labelEn: "Fajr" },
-  { key: "sunrise", labelAr: "الشروق", labelEn: "Sunrise" },
-  { key: "dhuhr", labelAr: "الظهر", labelEn: "Dhuhr" },
-  { key: "asr", labelAr: "العصر", labelEn: "Asr" },
-  { key: "maghrib", labelAr: "المغرب", labelEn: "Maghrib" },
-  { key: "isha", labelAr: "العشاء", labelEn: "Isha" },
-] as const;
+import Link from "next/link";
 
 const COORDS = new Coordinates(30.8708, 31.5588);
 const PARAMS = CalculationMethod.Egyptian();
 
-function formatTime(date: Date) {
-  return date.toLocaleTimeString("ar-EG", {
+const PRAYERS = [
+  { key: "fajr", labelAr: "الفجر", labelEn: "Fajr", icon: "🌙" },
+  { key: "sunrise", labelAr: "الشروق", labelEn: "Sunrise", icon: "🌅" },
+  { key: "dhuhr", labelAr: "الظهر", labelEn: "Dhuhr", icon: "☀️" },
+  { key: "asr", labelAr: "العصر", labelEn: "Asr", icon: "🌤" },
+  { key: "maghrib", labelAr: "المغرب", labelEn: "Maghrib", icon: "🌇" },
+  { key: "isha", labelAr: "العشاء", labelEn: "Isha", icon: "🌃" },
+] as const;
+
+function fmt(date: Date, locale: string) {
+  return date.toLocaleTimeString(locale === "ar" ? "ar-EG" : "en-US", {
     hour: "2-digit",
     minute: "2-digit",
     hour12: true,
   });
 }
 
-export default function PrayerTimesWidget({ locale }: { locale: string }) {
+function getNextInfo() {
+  const now = new Date();
+  const pt = new PrayerTimes(COORDS, now, PARAMS);
+  const next = pt.nextPrayer();
+  const name = next !== Prayer.None ? next : "fajr";
+  let target: Date;
+  if (next !== Prayer.None) {
+    target = pt.timeForPrayer(next as (typeof Prayer)[keyof typeof Prayer])!;
+  } else {
+    const tom = new Date();
+    tom.setDate(tom.getDate() + 1);
+    target = new PrayerTimes(COORDS, tom, PARAMS).fajr;
+  }
+  const diff = target.getTime() - now.getTime();
+  const h = Math.floor(diff / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000);
+  const s = Math.floor((diff % 60000) / 1000);
+  return {
+    name,
+    countdown: `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`,
+  };
+}
+
+interface Props {
+  locale: string;
+  compact?: boolean;
+}
+
+export function PrayerTimesWidget({ locale, compact = false }: Props) {
   const isAr = locale === "ar";
-  const [times, setTimes] = useState<Record<string, string>>({});
-  const [nextPrayer, setNextPrayer] = useState<string>("");
-  const [countdown, setCountdown] = useState<string>("");
+  const now = new Date();
+  const pt = new PrayerTimes(COORDS, now, PARAMS);
+
+  const times = {
+    fajr: fmt(pt.fajr, locale),
+    sunrise: fmt(pt.sunrise, locale),
+    dhuhr: fmt(pt.dhuhr, locale),
+    asr: fmt(pt.asr, locale),
+    maghrib: fmt(pt.maghrib, locale),
+    isha: fmt(pt.isha, locale),
+  };
+
+  const initial = getNextInfo();
+  const [nextPrayer, setNextPrayer] = useState(initial.name);
+  const [countdown, setCountdown] = useState(initial.countdown);
 
   useEffect(() => {
-    const now = new Date();
-    const pt = new PrayerTimes(COORDS, now, PARAMS);
-    setTimes({
-      fajr: formatTime(pt.fajr),
-      sunrise: formatTime(pt.sunrise),
-      dhuhr: formatTime(pt.dhuhr),
-      asr: formatTime(pt.asr),
-      maghrib: formatTime(pt.maghrib),
-      isha: formatTime(pt.isha),
-    });
-
-    const next = pt.nextPrayer();
-    if (next !== Prayer.None) {
-      setNextPrayer(next);
-    } else {
-      setNextPrayer("fajr");
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!nextPrayer) return;
-
-    const getTargetTime = (): Date => {
-      const now = new Date();
-      const pt = new PrayerTimes(COORDS, now, PARAMS);
-      const next = pt.nextPrayer();
-
-      if (next !== Prayer.None) {
-        return pt.timeForPrayer(next as (typeof Prayer)[keyof typeof Prayer])!;
-      } else {
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const ptTomorrow = new PrayerTimes(COORDS, tomorrow, PARAMS);
-        return ptTomorrow.fajr;
-      }
-    };
-
-    const tick = () => {
-      const now = new Date();
-      const target = getTargetTime();
-      const diff = target.getTime() - now.getTime();
-      if (diff <= 0) {
-        setCountdown("00:00:00");
-        return;
-      }
-      const h = Math.floor(diff / 3600000);
-      const m = Math.floor((diff % 3600000) / 60000);
-      const s = Math.floor((diff % 60000) / 1000);
-      setCountdown(
-        `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`,
-      );
-    };
-
-    tick(); // run immediately
-    const interval = setInterval(tick, 1000);
+    const interval = setInterval(() => {
+      const { name, countdown } = getNextInfo();
+      setNextPrayer(name);
+      setCountdown(countdown);
+    }, 1000);
     return () => clearInterval(interval);
-  }, [nextPrayer]);
+  }, []);
 
   const nextLabel = PRAYERS.find((p) => p.key === nextPrayer);
 
+  if (compact) {
+    return (
+      <div className="text-white">
+        {/* Next prayer */}
+        <div className="mb-4">
+          <p className="font-arabic text-white/60 text-xs mb-0.5">
+            {isAr ? "الصلاة القادمة" : "Next Prayer"}
+          </p>
+          <div className="flex items-center justify-between">
+            <p className="font-arabic text-lg font-bold">
+              {nextLabel ? (isAr ? nextLabel.labelAr : nextLabel.labelEn) : "—"}
+            </p>
+            <p
+              className="font-mono text-xl font-bold text-[#C9A84C]"
+              suppressHydrationWarning
+            >
+              {countdown}
+            </p>
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div className="w-full h-px bg-white/10 mb-3" />
+
+        {/* All prayers */}
+        <div className="space-y-2">
+          {PRAYERS.map(({ key, labelAr, labelEn }) => {
+            const isNext = key === nextPrayer;
+            return (
+              <div
+                key={key}
+                className={`flex items-center justify-between py-1 px-2 rounded-lg transition-all ${
+                  isNext ? "bg-white/15" : ""
+                }`}
+              >
+                <span
+                  className={`font-mono text-sm ${isNext ? "text-[#C9A84C] font-bold" : "text-white/70"}`}
+                >
+                  {times[key as keyof typeof times]}
+                </span>
+                <span
+                  className={`font-arabic text-sm ${isNext ? "text-white font-bold" : "text-white/70"}`}
+                >
+                  {isAr ? labelAr : labelEn}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Link */}
+        <div className="mt-3 pt-3 border-t border-white/10 text-center">
+          <Link
+            href={`/${locale}/prayer-times`}
+            className="font-arabic text-xs text-[#C9A84C] hover:text-white transition-colors"
+          >
+            {isAr ? "الجدول الشهري ←" : "Monthly Schedule ←"}
+          </Link>
+        </div>
+
+        {/* Location */}
+        <p className="font-arabic text-white/30 text-xs text-center mt-2">
+          {isAr ? "بلبيس — الشرقية" : "Belbeis — Al-Sharqia"}
+        </p>
+      </div>
+    );
+  }
+
+  // Full widget (for non-hero use)
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-[#C9A84C]/20 overflow-hidden">
-      <div className="bg-[#1B6B4A] px-6 py-4 text-white text-center">
-        <p className="text-sm text-white/70 mb-1">
+    <div className="flex flex-col md:flex-row items-center gap-6">
+      <div className="flex-shrink-0 text-center bg-primary/5 rounded-2xl px-6 py-4 border border-primary/10">
+        <p className="font-arabic text-xs text-gray-500 mb-1">
           {isAr ? "الصلاة القادمة" : "Next Prayer"}
         </p>
-        <p className="text-2xl font-arabic font-bold">
+        <p className="font-arabic text-lg font-bold text-primary mb-1">
           {nextLabel ? (isAr ? nextLabel.labelAr : nextLabel.labelEn) : "—"}
         </p>
-        <p className="text-3xl font-mono font-bold tracking-widest mt-1 text-[#C9A84C]">
-          {countdown || "00:00:00"}
+        <p
+          className="font-mono text-2xl font-bold text-[#C9A84C] tracking-wider"
+          suppressHydrationWarning
+        >
+          {countdown}
         </p>
       </div>
 
-      <div className="divide-y divide-gray-100">
-        {PRAYERS.map(({ key, labelAr, labelEn }) => {
+      <div className="flex-1 grid grid-cols-3 md:grid-cols-6 gap-2 w-full">
+        {PRAYERS.map(({ key, labelAr, labelEn, icon }) => {
           const isNext = key === nextPrayer;
           return (
             <div
               key={key}
-              className={`flex items-center justify-between px-6 py-3 ${
+              className={`text-center rounded-xl py-3 px-2 transition-all ${
                 isNext
-                  ? "bg-[#1B6B4A]/5 font-semibold text-[#1B6B4A]"
-                  : "text-gray-700"
+                  ? "bg-primary text-white shadow-md"
+                  : "bg-gray-50 text-gray-700"
               }`}
             >
-              <span className="font-arabic text-sm">
+              <div className="text-lg mb-1">{icon}</div>
+              <p
+                className={`font-arabic text-xs font-bold mb-1 ${isNext ? "text-white" : "text-gray-600"}`}
+              >
                 {isAr ? labelAr : labelEn}
-              </span>
-              <span className="font-mono text-sm">{times[key] || "—"}</span>
+              </p>
+              <p
+                className={`font-mono text-xs font-bold ${isNext ? "text-[#C9A84C]" : "text-primary"}`}
+              >
+                {times[key as keyof typeof times]}
+              </p>
             </div>
           );
         })}
       </div>
 
-      <div className="px-6 py-3 text-center text-xs text-gray-400 font-arabic">
-        {isAr ? "بلبيس — الشرقية" : "Belbeis — Al-Sharqia"}
-      </div>
+      <Link
+        href={`/${locale}/prayer-times`}
+        className="flex-shrink-0 font-arabic text-sm text-primary hover:underline whitespace-nowrap"
+      >
+        {isAr ? "الجدول الكامل ←" : "Full Schedule ←"}
+      </Link>
     </div>
   );
 }
