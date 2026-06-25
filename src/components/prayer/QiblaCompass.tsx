@@ -1,9 +1,14 @@
 "use client";
 
+import type React from "react";
 import { useEffect, useState } from "react";
 import { Coordinates, Qibla } from "adhan";
 
 const BELBEIS = new Coordinates(30.8708, 31.5588);
+
+type DeviceOrientationEventWithPermission = typeof DeviceOrientationEvent & {
+  requestPermission?: () => Promise<string>;
+};
 
 export default function QiblaCompass({ locale }: { locale: string }) {
   const isAr = locale === "ar";
@@ -19,7 +24,6 @@ export default function QiblaCompass({ locale }: { locale: string }) {
   const [userQibla, setUserQibla] = useState<number | null>(null);
 
   useEffect(() => {
-    // Get user location for accurate Qibla
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition((pos) => {
         const coords = new Coordinates(
@@ -31,7 +35,6 @@ export default function QiblaCompass({ locale }: { locale: string }) {
       });
     }
 
-    // Device orientation for live compass
     if (typeof DeviceOrientationEvent !== "undefined") {
       const handler = (e: DeviceOrientationEvent) => {
         if (e.alpha !== null) {
@@ -41,7 +44,8 @@ export default function QiblaCompass({ locale }: { locale: string }) {
       };
 
       if (
-        typeof (DeviceOrientationEvent as any).requestPermission === "function"
+        typeof (DeviceOrientationEvent as DeviceOrientationEventWithPermission)
+          .requestPermission === "function"
       ) {
         setPermission("pending");
       } else {
@@ -53,11 +57,13 @@ export default function QiblaCompass({ locale }: { locale: string }) {
     } else {
       setPermission("unsupported");
     }
-  }, []);
+  }, [ setDeviceAngle, setPermission, setUserCoords, setUserQibla]);
 
   const requestPermission = async () => {
     try {
-      const result = await (DeviceOrientationEvent as any).requestPermission();
+      const result = await (
+        DeviceOrientationEvent as DeviceOrientationEventWithPermission
+      ).requestPermission?.();
       if (result === "granted") {
         setPermission("granted");
         window.addEventListener(
@@ -121,7 +127,6 @@ export default function QiblaCompass({ locale }: { locale: string }) {
       {/* Compass */}
       <div className="flex flex-col items-center">
         <div className="relative w-72 h-72">
-          {/* Compass rose background */}
           <div
             className="absolute inset-0 rounded-full border-4 border-gray-200 bg-white shadow-2xl"
             style={{
@@ -133,28 +138,24 @@ export default function QiblaCompass({ locale }: { locale: string }) {
             {[
               {
                 label: isAr ? "ش" : "N",
-                deg: 0,
                 top: "4px",
                 left: "50%",
                 transform: "translateX(-50%)",
               },
               {
                 label: isAr ? "ج" : "S",
-                deg: 180,
                 bottom: "4px",
                 left: "50%",
                 transform: "translateX(-50%)",
               },
               {
                 label: isAr ? "ش.غ" : "E",
-                deg: 90,
                 top: "50%",
                 right: "4px",
                 transform: "translateY(-50%)",
               },
               {
                 label: isAr ? "غ" : "W",
-                deg: 270,
                 top: "50%",
                 left: "4px",
                 transform: "translateY(-50%)",
@@ -163,7 +164,7 @@ export default function QiblaCompass({ locale }: { locale: string }) {
               <div
                 key={label}
                 className="absolute font-arabic font-bold text-sm text-gray-500"
-                style={style as any}
+                style={style as React.CSSProperties}
               >
                 {label}
               </div>
@@ -194,7 +195,6 @@ export default function QiblaCompass({ locale }: { locale: string }) {
             style={{ transform: `rotate(${needleRotation}deg)` }}
           >
             <div className="relative w-full h-full flex items-center justify-center">
-              {/* Kaaba icon at tip */}
               <div
                 className="absolute text-2xl"
                 style={{
@@ -205,7 +205,6 @@ export default function QiblaCompass({ locale }: { locale: string }) {
               >
                 🕋
               </div>
-              {/* Needle */}
               <div className="flex flex-col items-center">
                 <div
                   className="w-2 rounded-t-full"
@@ -224,7 +223,6 @@ export default function QiblaCompass({ locale }: { locale: string }) {
           </div>
         </div>
 
-        {/* Permission button for iOS */}
         {permission === "pending" && (
           <button
             onClick={requestPermission}

@@ -1,9 +1,12 @@
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "./prisma";
 import bcrypt from "bcryptjs";
+import type { NextAuthOptions } from "next-auth";
+import type { JWT } from "next-auth/jwt";
+import type { Session } from "next-auth";
 
-export const authOptions = {
-  session: { strategy: "jwt" as const },
+export const authOptions: NextAuthOptions = {
+  session: { strategy: "jwt" },
   pages: {
     signIn: "/ar/auth/login",
   },
@@ -20,10 +23,7 @@ export const authOptions = {
 
         if (!email || !password) return null;
 
-        const user = await prisma.user.findUnique({
-          where: { email },
-        });
-
+        const user = await prisma.user.findUnique({ where: { email } });
         if (!user || !user.password) return null;
 
         const valid = await bcrypt.compare(password, user.password);
@@ -39,29 +39,17 @@ export const authOptions = {
     }),
   ],
   callbacks: {
-    jwt({
-      token,
-      user,
-    }: {
-      token: Record<string, unknown>;
-      user?: Record<string, unknown>;
-    }) {
+    jwt({ token, user }: { token: JWT; user?: { id: string; role: string } }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;
       }
       return token;
     },
-    session({
-      session,
-      token,
-    }: {
-      session: Record<string, unknown>;
-      token: Record<string, unknown>;
-    }) {
+    session({ session, token }: { session: Session; token: JWT }) {
       if (token && session.user) {
-        (session.user as Record<string, unknown>).id = token.id;
-        (session.user as Record<string, unknown>).role = token.role;
+        session.user.id = token.id as string;
+        session.user.role = token.role as string;
       }
       return session;
     },

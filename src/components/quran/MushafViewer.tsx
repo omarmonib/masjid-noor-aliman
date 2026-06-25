@@ -178,21 +178,36 @@ export default function MushafViewer({ locale }: Props) {
       .then((r) => r.json())
       .then(async (json) => {
         const allWords: Word[] = [];
-        json.verses?.forEach((verse: any) => {
-          verse.words?.forEach((w: any) => {
-            allWords.push({
-              id: w.id,
-              position: w.position,
-              codeV2: w.code_v2 || "",
-              textQpcHafs: w.text_qpc_hafs || w.text || "",
-              pageNumber: w.page_number || 1,
-              lineNumber: w.line_number || 1,
-              charTypeName: w.char_type_name || "word",
-              verseKey: verse.verse_key,
-              audioUrl: w.audio_url,
-            });
-          });
-        });
+     json.verses?.forEach(
+       (verse: {
+         verse_key: string;
+         words: {
+           id: number;
+           position: number;
+           code_v2: string;
+           text_qpc_hafs: string;
+           text: string;
+           page_number: number;
+           line_number: number;
+           char_type_name: string;
+           audio_url?: string;
+         }[];
+       }) => {
+         verse.words?.forEach((w) => {
+           allWords.push({
+             id: w.id,
+             position: w.position,
+             codeV2: w.code_v2 || "",
+             textQpcHafs: w.text_qpc_hafs || w.text || "",
+             pageNumber: w.page_number || 1,
+             lineNumber: w.line_number || 1,
+             charTypeName: w.char_type_name || "word",
+             verseKey: verse.verse_key,
+             audioUrl: w.audio_url,
+           });
+         });
+       },
+     );
 
         setWords(allWords);
 
@@ -202,7 +217,7 @@ export default function MushafViewer({ locale }: Props) {
 
         // Load fonts for all pages in this surah
         const pages = new Set(allWords.map((w) => w.pageNumber));
-        await Promise.all([...pages].map(loadPageFont));
+        await Promise.all(Array.from(pages).map(loadPageFont));
         setFontsReady(true);
         setLoading(false);
       })

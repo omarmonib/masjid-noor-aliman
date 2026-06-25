@@ -6,6 +6,8 @@ export interface Dhikr {
   id: string;
   textAr: string;
   repeat: number;
+  bless?: string;
+  source?: string;
 }
 
 export interface AdhkarCategoryData {
