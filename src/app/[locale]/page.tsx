@@ -2,6 +2,9 @@ import DailyVerseSection from "@/components/sections/DailyVerseSection";
 import DailyHadithSection from "@/components/sections/DailyHadithSection";
 import Hero from "@/components/layout/Hero";
 import Link from "next/link";
+import { getDailyVerse, getDailyHadith } from "@/lib/quran";
+
+export const dynamic = "force-dynamic";
 
 export default async function HomePage({
   params,
@@ -11,23 +14,11 @@ export default async function HomePage({
   const { locale } = await params;
   const isAr = locale === "ar";
 
-  // temporary placeholders for verse and hadith to avoid undefined errors
-  const verse = {
-    arabic: "آية افتراضية",
-    english: "Sample verse",
-    surah: isAr ? "سورة" : "Surah",
-    surahEn: isAr ? "آية" : "Ayah",
-    ayah: 1,
-  };
-
-  const hadith = {
-    // shape expected by DailyHadithSection: provide arabic and number
-    arabic: isAr ? "حديث افتراضي" : "Sample hadith",
-    number: 1,
-    // keep legacy fields if used elsewhere
-    text: isAr ? "حديث افتراضي" : "Sample hadith",
-    source: isAr ? "رواية" : "Source",
-  };
+  // Fetch random verse and hadith on every page load
+  const [verse, hadith] = await Promise.all([
+    getDailyVerse(),
+    getDailyHadith(),
+  ]);
 
   const features = [
     {
@@ -85,7 +76,6 @@ export default async function HomePage({
       {/* Hero */}
       <Hero locale={locale} />
 
-
       {/* Quick access grid */}
       <section className="bg-surface py-12 px-4">
         <div className="max-w-4xl mx-auto">
@@ -128,7 +118,7 @@ export default async function HomePage({
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-6">
             <p className="font-arabic text-[#C9A84C] text-sm mb-1">
-              ✦ {isAr ? "آية اليوم" : "Verse of the Day"} ✦
+              ✦ {isAr ? "آية عشوائية" : "Random Verse"} ✦
             </p>
           </div>
           <DailyVerseSection verse={verse} locale={locale} />
@@ -140,7 +130,7 @@ export default async function HomePage({
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-6">
             <p className="font-arabic text-primary text-sm mb-1">
-              ✦ {isAr ? "حديث اليوم" : "Hadith of the Day"} ✦
+              ✦ {isAr ? "حديث عشوائي" : "Random Hadith"} ✦
             </p>
           </div>
           <DailyHadithSection hadith={hadith} locale={locale} />

@@ -1,15 +1,11 @@
 export async function getDailyVerse() {
   try {
-    // Gets a verse based on today's date (cycles through 6236 verses)
-    const dayOfYear = Math.floor(
-      (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) /
-        86400000,
-    );
-    const verseNumber = (dayOfYear % 6236) + 1;
+    // Pick a random verse from the 6236 total
+    const verseNumber = Math.floor(Math.random() * 6236) + 1;
 
     const res = await fetch(
       `https://api.alquran.cloud/v1/ayah/${verseNumber}/editions/quran-uthmani,en.asad`,
-      { next: { revalidate: 86400 } }, // cache for 24 hours
+      { cache: "no-store" },
     );
 
     if (!res.ok) throw new Error("Failed to fetch verse");
@@ -38,15 +34,12 @@ export async function getDailyVerse() {
 
 export async function getDailyHadith() {
   try {
-    const dayOfYear = Math.floor(
-      (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) /
-        86400000,
-    );
-    const hadithNumber = (dayOfYear % 100) + 1;
+    // Pick a random hadith number from 1–100
+    const hadithNumber = Math.floor(Math.random() * 100) + 1;
 
     const res = await fetch(
       `https://api.hadith.gading.dev/books/muslim/${hadithNumber}`,
-      { next: { revalidate: 86400 } },
+      { cache: "no-store" },
     );
 
     if (!res.ok) throw new Error("Failed to fetch hadith");
