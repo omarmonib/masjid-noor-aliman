@@ -1,6 +1,5 @@
 export async function getDailyVerse() {
   try {
-    // Pick a random verse from the 6236 total
     const verseNumber = Math.floor(Math.random() * 6236) + 1;
 
     const res = await fetch(
@@ -33,28 +32,29 @@ export async function getDailyVerse() {
 }
 
 export async function getDailyHadith() {
-  try {
-    // Pick a random hadith number from 1–100
-    const hadithNumber = Math.floor(Math.random() * 100) + 1;
+  const dayOfYear = Math.floor(
+    (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) /
+      86400000,
+  );
+  const number = (dayOfYear % 42) + 1;
 
+  try {
     const res = await fetch(
-      `https://api.hadith.gading.dev/books/muslim/${hadithNumber}`,
+      `https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions/ara-nawawi/${number}.json`,
       { cache: "no-store" },
     );
-
     if (!res.ok) throw new Error("Failed to fetch hadith");
     const data = await res.json();
+    const arabic = data.hadiths?.[0]?.text || data.hadith?.[0]?.text || "";
 
     return {
-      arabic: data.data.contents.arab,
-      indonesian: data.data.contents.id,
-      number: hadithNumber,
+      arabic,
+      number,
     };
   } catch {
     return {
       arabic:
         "إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ، وَإِنَّمَا لِكُلِّ امْرِئٍ مَا نَوَى",
-      indonesian: null,
       number: 1,
     };
   }

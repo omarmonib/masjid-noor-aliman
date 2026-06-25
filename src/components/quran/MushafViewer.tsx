@@ -316,14 +316,14 @@ export default function MushafViewer({ locale }: Props) {
               disabled={surah === 1}
               className="px-3 py-1.5 text-white/60 hover:text-white disabled:opacity-30 text-sm font-arabic"
             >
-              › {isAr ? "السابقة" : "Prev"}
+              › {isAr ? "السورة السابقة" : "Prev"}
             </button>
             <button
               onClick={() => setSurah((s) => Math.min(114, s + 1))}
               disabled={surah === 114}
               className="px-3 py-1.5 text-white/60 hover:text-white disabled:opacity-30 text-sm font-arabic"
             >
-              {isAr ? "التالية" : "Next"} ‹
+              {isAr ? "السورة التالية" : "Next"} ‹
             </button>
           </div>
         </div>
@@ -352,7 +352,7 @@ export default function MushafViewer({ locale }: Props) {
                 disabled={currentPageIndex <= 0}
                 className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-arabic rounded-xl disabled:opacity-30 transition-colors text-sm"
               >
-                {isAr ? "‹ الصفحة التالية" : "‹ Next"}
+                {isAr ? "‹ الصفحة السابقة" : "‹ Next"}
               </button>
 
               <span className="text-white/50 font-arabic text-sm">
@@ -367,7 +367,7 @@ export default function MushafViewer({ locale }: Props) {
                 disabled={currentPageIndex >= pageNumbers.length - 1}
                 className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-arabic rounded-xl disabled:opacity-30 transition-colors text-sm"
               >
-                {isAr ? "الصفحة السابقة ›" : "Prev ›"}
+                {isAr ? "الصفحة التالية ›" : "Prev ›"}
               </button>
             </div>
 

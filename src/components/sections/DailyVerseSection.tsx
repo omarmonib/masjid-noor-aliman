@@ -37,21 +37,6 @@ export default function DailyVerseSection({ verse, locale }: Props) {
               {verse.arabic}
             </p>
 
-            {/* Divider */}
-            <div className="flex items-center gap-4 my-6">
-              <div className="flex-1 h-px bg-gray-200" />
-              <span className="text-gold text-lg">❧</span>
-              <div className="flex-1 h-px bg-gray-200" />
-            </div>
-
-            {/* English translation */}
-            <p
-              className="text-gray-600 text-lg italic leading-relaxed mb-6"
-                dir="ltr"
-              >
-                &quot;{verse.english}&quot;
-            </p>
-
             {/* Reference */}
             <div className="inline-flex items-center gap-2 bg-primary/5 border border-primary/10 rounded-full px-5 py-2">
               <span className="font-arabic text-primary font-medium text-sm">
