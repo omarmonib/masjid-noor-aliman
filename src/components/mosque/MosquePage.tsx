@@ -1,9 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import NewsSection from "@/components/mosque/NewsSection";
-import EventsSection from "@/components/mosque/EventsSection";
-import AboutSection from "@/components/mosque/AboutSection";
 
 interface Props {
   locale: string;
@@ -56,11 +53,17 @@ export default function MosquePage({ locale }: Props) {
         </div>
       </div>
 
-      {/* Content */}
-      <div className="max-w-3xl mx-auto px-4 py-8">
-        {activeTab === "news" && <NewsSection locale={locale} />}
-        {activeTab === "events" && <EventsSection locale={locale} />}
-        {activeTab === "about" && <AboutSection locale={locale} />}
+      {/* Placeholder */}
+      <div className="max-w-3xl mx-auto px-4 py-20 text-center">
+        <div className="text-6xl mb-6">🔧</div>
+        <h2 className="font-arabic text-2xl font-bold text-gray-700 mb-3">
+          {isAr ? "سيتم إضافة التفاصيل قريباً" : "Details will be added soon"}
+        </h2>
+        <p className="font-arabic text-gray-400 text-base">
+          {isAr
+            ? "نعمل على تحديث هذا القسم. تابعونا للمزيد."
+            : "We are working on updating this section. Stay tuned."}
+        </p>
       </div>
     </main>
   );

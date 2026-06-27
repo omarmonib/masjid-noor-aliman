@@ -60,14 +60,21 @@ export default async function HomePage({
       descAr: "أخبار وفعاليات المسجد",
       descEn: "News & Events",
     },
+    {
+      href: `/${locale}/radio`,
+      icon: "📻",
+      labelAr: "الإذاعة الإسلامية",
+      labelEn: "Islamic Radio",
+      descAr: "استمع للقرآن والإذاعات",
+      descEn: "Listen to Quran radio",
+    },
   ];
 
   return (
     <main>
-      {/* Hero */}
       <Hero locale={locale} />
 
-      {/* Quick access grid */}
+      {/* Services grid */}
       <section className="bg-surface py-12 px-4">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-8">
@@ -81,6 +88,7 @@ export default async function HomePage({
               }}
             />
           </div>
+          {/* 2 cols on mobile, 3 on md+ — always even */}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {features.map((f) => (
               <Link
@@ -89,7 +97,7 @@ export default async function HomePage({
                 className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:border-primary/30 hover:shadow-md transition-all group text-center"
               >
                 <div className="text-4xl mb-3">{f.icon}</div>
-                <h3 className="font-arabic font-bold text-gray-800 group-hover:text-primary transition-colors mb-1">
+                <h3 className="font-arabic font-bold text-gray-800 group-hover:text-primary transition-colors mb-1 text-sm md:text-base">
                   {isAr ? f.labelAr : f.labelEn}
                 </h3>
                 <p className="font-arabic text-xs text-gray-400">
@@ -101,7 +109,7 @@ export default async function HomePage({
         </div>
       </section>
 
-      {/* Daily Verse — dark green background */}
+      {/* Daily Verse */}
       <section
         className="py-12 px-4"
         style={{ background: "linear-gradient(135deg, #0D3D28, #1B6B4A)" }}
@@ -119,7 +127,7 @@ export default async function HomePage({
         </div>
       </section>
 
-      {/* Daily Hadith — light surface background */}
+      {/* Daily Hadith */}
       <section className="bg-surface py-12 px-4">
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-6">
@@ -146,7 +154,7 @@ export default async function HomePage({
               ? "بلبيس — محافظة الشرقية — مصر"
               : "Belbeis — Al-Sharqia — Egypt"}
           </p>
-          <div className="flex justify-center gap-6 flex-wrap pt-2">
+          <div className="flex justify-center gap-4 flex-wrap pt-2">
             {[
               { href: `/${locale}/quran`, label: isAr ? "القرآن" : "Quran" },
               {
@@ -156,7 +164,7 @@ export default async function HomePage({
               { href: `/${locale}/adhkar`, label: isAr ? "الأذكار" : "Adhkar" },
               { href: `/${locale}/hadith`, label: isAr ? "الحديث" : "Hadith" },
               { href: `/${locale}/mosque`, label: isAr ? "المسجد" : "Mosque" },
-              { href: `/${locale}/donate`, label: isAr ? "تبرع" : "Donate" },
+              { href: `/${locale}/radio`, label: isAr ? "الإذاعة" : "Radio" },
             ].map((l) => (
               <Link
                 key={l.href}

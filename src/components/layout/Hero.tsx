@@ -33,30 +33,27 @@ export default function Hero({ locale }: { locale: string }) {
       />
 
       {/* Main content */}
-      <div className="relative z-10 flex-1 flex items-center px-6 md:px-16 py-20">
-        <div className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center gap-12">
-          {/* RIGHT: Text + Buttons */}
-          <div className="flex-1 flex flex-col text-white">
-            {/* Bismillah */}
-            <p className="font-arabic text-[#C9A84C] text-2xl mb-5 leading-loose">
+      <div className="relative z-10 flex-1 flex items-center px-6 md:px-16 py-16">
+        <div className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center gap-10">
+          {/* Text + Buttons */}
+          <div className="flex-1 flex flex-col text-white text-center md:text-right">
+            <p className="font-arabic text-[#C9A84C] text-xl md:text-2xl mb-4 leading-loose">
               بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
             </p>
 
-            {/* Mosque name */}
-            <h1 className="font-arabic text-5xl md:text-7xl font-bold mb-3 leading-tight">
+            <h1 className="font-arabic text-4xl md:text-7xl font-bold mb-3 leading-tight">
               {isAr ? "مسجد نور الإيمان" : "Masjid Noor Al-Iman"}
             </h1>
 
-            {/* Location */}
-            <p className="font-arabic text-white/70 text-lg mb-5">
+            <p className="font-arabic text-white/70 text-base md:text-lg mb-6">
               {isAr ? "بلبيس — محافظة الشرقية" : "Belbeis — Al-Sharqia, Egypt"}
             </p>
 
-            {/* Buttons — in the middle of the text block */}
-            <div className="flex flex-col sm:flex-row gap-4 mb-6 w-full ">
+            {/* Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3 mb-6 w-full">
               <Link
                 href={`/${locale}/quran`}
-                className="font-arabic text-lg font-bold px-10 py-4 rounded-2xl transition-all hover:scale-105 hover:shadow-2xl active:scale-95 text-center"
+                className="font-arabic text-base md:text-lg font-bold px-8 py-4 rounded-2xl transition-all hover:scale-105 hover:shadow-2xl active:scale-95 text-center"
                 style={{
                   background: "linear-gradient(135deg, #C9A84C, #E8C56A)",
                   color: "#0D3D28",
@@ -68,20 +65,20 @@ export default function Hero({ locale }: { locale: string }) {
 
               <Link
                 href={`/${locale}/prayer-times`}
-                className="font-arabic text-lg font-bold px-10 py-4 rounded-2xl border-2 border-white/30 bg-white/10 backdrop-blur-sm text-white transition-all hover:bg-white/20 hover:border-white/50 hover:scale-105 active:scale-95 text-center"
+                className="font-arabic text-base md:text-lg font-bold px-8 py-4 rounded-2xl border-2 border-white/30 bg-white/10 backdrop-blur-sm text-white transition-all hover:bg-white/20 hover:border-white/50 hover:scale-105 active:scale-95 text-center"
               >
                 🕌 {isAr ? "مواقيت الصلاة" : "Prayer Times"}
               </Link>
             </div>
 
-            {/* Description — below buttons */}
-            <p className="font-arabic text-white/70 text-base leading-relaxed max-w-lg">
+            <p className="font-arabic text-white/70 text-sm md:text-base leading-relaxed max-w-lg mx-auto md:mx-0">
               {isAr
                 ? "منارة للعلم والإيمان في قلب بلبيس — نسعى لخدمة المجتمع وتعليم القرآن الكريم والسنة النبوية الشريفة"
                 : "A beacon of knowledge and faith in the heart of Belbeis — serving the community through Quran and Sunnah"}
             </p>
           </div>
-          {/* LEFT: Prayer Times Widget */}
+
+          {/* Prayer Times Widget */}
           <div className="w-full md:w-80 flex-shrink-0">
             <div
               className="rounded-2xl p-5 border border-white/10"
