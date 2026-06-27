@@ -12,3 +12,43 @@ body {
   color: var(--foreground);
   font-family: var(--font-cairo), sans-serif;
 }
+
+/* Uthmanic Hafs font for Quran rendering */
+@font-face {
+  font-family: "UthmanicHafs1Ver18";
+  src: url("https://verses.quran.foundation/fonts/quran/hafs/uthmanic_hafs/UthmanicHafs1Ver18.woff2")
+    format("woff2");
+  font-display: swap;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Arabic text rendering */
+.font-arabic {
+  font-family: var(--font-cairo), "Cairo", sans-serif;
+}
+
+.font-quran {
+  font-family: var(--font-amiri), "Amiri Quran", "UthmanicHafs1Ver18", serif;
+}
+
+/* Remove number input arrows */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Print styles for prayer timetable */
+@media print {
+  nav,
+  .no-print {
+    display: none !important;
+  }
+}

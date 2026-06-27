@@ -12,6 +12,10 @@ const amiri = Amiri({
 });
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
+export function generateStaticParams() {
+  return [{ locale: "ar" }, { locale: "en" }];
+}
+
 export default async function LocaleLayout({
   children,
   params,
@@ -24,17 +28,23 @@ export default async function LocaleLayout({
   const messages = await getMessages();
 
   return (
-    <NextIntlClientProvider messages={messages}>
-      <SessionWrapper>
-        <div
-          className={`${cairo.variable} ${amiri.variable} ${inter.variable} min-h-screen bg-surface`}
-          dir={locale === "ar" ? "rtl" : "ltr"}
-          style={{ fontFamily: "var(--font-cairo), sans-serif" }}
-        >
-          <Navbar locale={locale} />
-          {children}
-        </div>
-      </SessionWrapper>
-    </NextIntlClientProvider>
+    <html
+      lang={locale}
+      dir={locale === "ar" ? "rtl" : "ltr"}
+      className={`${cairo.variable} ${amiri.variable} ${inter.variable}`}
+      suppressHydrationWarning
+    >
+      <body
+        className="bg-surface min-h-screen"
+        style={{ fontFamily: "var(--font-cairo), sans-serif" }}
+      >
+        <NextIntlClientProvider messages={messages}>
+          <SessionWrapper>
+            <Navbar locale={locale} />
+            {children}
+          </SessionWrapper>
+        </NextIntlClientProvider>
+      </body>
+    </html>
   );
 }

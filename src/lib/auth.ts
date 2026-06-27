@@ -8,7 +8,7 @@ import type { Session } from "next-auth";
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
   pages: {
-    signIn: "/ar/auth/login",
+    signIn: "/auth/login",
   },
   providers: [
     CredentialsProvider({

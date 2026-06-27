@@ -1,7 +1,6 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
-  darkMode: "class",
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -10,21 +9,19 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        primary: {
-          DEFAULT: "#1B6B4A",
-          dark: "#0D3D28",
-          foreground: "#FAF6F0",
-        },
-        gold: {
-          DEFAULT: "#C9A84C",
-          light: "#E2C77A",
-        },
+        primary: "#1B6B4A",
+        "primary-dark": "#0D3D28",
+        gold: "#C9A84C",
         surface: "#FAF6F0",
       },
       fontFamily: {
-        arabic: ["var(--font-cairo)", "serif"],
-        quran:  ["var(--font-amiri)", "serif"],
-        latin:  ["var(--font-inter)", "sans-serif"],
+        arabic: ["var(--font-cairo)", "sans-serif"],
+        amiri: ["var(--font-amiri)", "serif"],
+        quran: ["var(--font-amiri)", "'UthmanicHafs1Ver18'", "serif"],
+        inter: ["var(--font-inter)", "sans-serif"],
+      },
+      backgroundImage: {
+        "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
       },
     },
   },

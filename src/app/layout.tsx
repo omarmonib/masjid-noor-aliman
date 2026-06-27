@@ -11,9 +11,5 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <html>
-      <body className="bg-surface min-h-screen">{children}</body>
-    </html>
-  );
+  return children;
 }

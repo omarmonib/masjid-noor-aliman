@@ -21,8 +21,8 @@ export default function Navbar({ locale }: { locale: string }) {
       labelAr: "مواقيت الصلاة",
       labelEn: "Prayer Times",
     },
+    { href: "/radio", labelAr: "الإذاعة", labelEn: "Radio" },
     { href: "/mosque", labelAr: "المسجد", labelEn: "Mosque" },
-    { href: "/donate", labelAr: "تبرع", labelEn: "Donate" },
   ];
 
   return (

@@ -14,7 +14,6 @@ export default async function HomePage({
   const { locale } = await params;
   const isAr = locale === "ar";
 
-  // Fetch random verse and hadith on every page load
   const [verse, hadith] = await Promise.all([
     getDailyVerse(),
     getDailyHadith(),
@@ -61,14 +60,6 @@ export default async function HomePage({
       descAr: "أخبار وفعاليات المسجد",
       descEn: "News & Events",
     },
-    {
-      href: `/${locale}/donate`,
-      icon: "💚",
-      labelAr: "تبرع للمسجد",
-      labelEn: "Donate",
-      descAr: "ساهم في دعم المسجد",
-      descEn: "Support the mosque",
-    },
   ];
 
   return (
@@ -110,14 +101,17 @@ export default async function HomePage({
         </div>
       </section>
 
-      {/* Daily Verse */}
+      {/* Daily Verse — dark green background */}
       <section
         className="py-12 px-4"
         style={{ background: "linear-gradient(135deg, #0D3D28, #1B6B4A)" }}
       >
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-6">
-            <p className="font-arabic text-[#C9A84C] text-sm mb-1">
+            <p
+              className="font-arabic text-sm tracking-widest mb-1"
+              style={{ color: "#C9A84C" }}
+            >
               ✦ {isAr ? "آية عشوائية" : "Random Verse"} ✦
             </p>
           </div>
@@ -125,11 +119,11 @@ export default async function HomePage({
         </div>
       </section>
 
-      {/* Daily Hadith */}
+      {/* Daily Hadith — light surface background */}
       <section className="bg-surface py-12 px-4">
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-6">
-            <p className="font-arabic text-primary text-sm mb-1">
+            <p className="font-arabic text-sm tracking-widest mb-1 text-primary">
               ✦ {isAr ? "حديث عشوائي" : "Random Hadith"} ✦
             </p>
           </div>
@@ -162,6 +156,7 @@ export default async function HomePage({
               { href: `/${locale}/adhkar`, label: isAr ? "الأذكار" : "Adhkar" },
               { href: `/${locale}/hadith`, label: isAr ? "الحديث" : "Hadith" },
               { href: `/${locale}/mosque`, label: isAr ? "المسجد" : "Mosque" },
+              { href: `/${locale}/donate`, label: isAr ? "تبرع" : "Donate" },
             ].map((l) => (
               <Link
                 key={l.href}
