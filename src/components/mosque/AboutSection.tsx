@@ -1,3 +1,5 @@
+"use client";
+
 import Image from "next/image";
 
 export default function AboutSection({ locale }: { locale: string }) {
@@ -28,16 +30,8 @@ export default function AboutSection({ locale }: { locale: string }) {
   ];
 
   const admins = [
-    {
-      nameAr: "م/ محمد رابع",
-      nameEn: "Mohamed Rabiea",
-      phone: "01066271986",
-    },
-    {
-      nameAr: "أ/ أحمد رابع",
-      nameEn: "Ahmed Rabiea",
-      phone: "01067470470",
-    },
+    { nameAr: "م/ محمد رابع", nameEn: "Mohamed Rabiea", phone: "01066271986" },
+    { nameAr: "أ/ أحمد رابع", nameEn: "Ahmed Rabiea", phone: "01067470470" },
   ];
 
   const services = isAr
@@ -62,6 +56,19 @@ export default function AboutSection({ locale }: { locale: string }) {
         "Religious occasions",
       ];
 
+  const WhatsAppIcon = () => (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="white"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
+      <path d="M12 0C5.373 0 0 5.373 0 12c0 2.113.546 4.1 1.502 5.836L.057 23.215a.75.75 0 0 0 .921.921l5.379-1.445A11.944 11.944 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75a9.695 9.695 0 0 1-4.95-1.355l-.355-.21-3.681.989.988-3.607-.228-.37A9.696 9.696 0 0 1 2.25 12C2.25 6.615 6.615 2.25 12 2.25S21.75 6.615 21.75 12 17.385 21.75 12 21.75z" />
+    </svg>
+  );
+
   const SectionHeader = ({ title }: { title: string }) => (
     <div
       className="px-4 sm:px-6 py-3 sm:py-4 text-white font-arabic font-bold text-sm sm:text-base"
@@ -73,6 +80,21 @@ export default function AboutSection({ locale }: { locale: string }) {
 
   return (
     <div className="space-y-4 sm:space-y-6">
+      {/* ── Sadaqa Banner ── */}
+      <div
+        className="rounded-2xl px-5 py-4 text-center border border-yellow-200 shadow-sm"
+        style={{ background: "linear-gradient(135deg, #fffbeb, #fef3c7)" }}
+      >
+        <p className="font-arabic text-xs sm:text-sm text-yellow-800 leading-relaxed">
+          {isAr
+            ? "هذا العمل صدقة جارية في ذكرى الحاج محمود رابع — رحمه الله ونوّر قبره"
+            : "This work is a continuous charity in memory of the late Haj Mahmoud Rabiea — may Allah have mercy on him"}
+        </p>
+        <p className="text-lg mt-1" style={{ color: "#C9A84C" }}>
+          🌿
+        </p>
+      </div>
+
       {/* ── Mosque Info ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <SectionHeader title={isAr ? "معلومات المسجد" : "Mosque Information"} />
@@ -111,12 +133,9 @@ export default function AboutSection({ locale }: { locale: string }) {
               className="flex flex-row items-center justify-between px-4 sm:px-6 py-3 sm:py-4 gap-3"
               dir="rtl"
             >
-              {/* Name */}
               <span className="font-arabic font-bold text-gray-800 text-sm sm:text-base">
                 {isAr ? admin.nameAr : admin.nameEn}
               </span>
-
-              {/* WhatsApp button */}
               <a
                 href={`https://wa.me/2${admin.phone}`}
                 target="_blank"
@@ -126,16 +145,7 @@ export default function AboutSection({ locale }: { locale: string }) {
                   background: "linear-gradient(135deg, #25D366, #1ebe5d)",
                 }}
               >
-                <svg
-                  width="15"
-                  height="15"
-                  viewBox="0 0 24 24"
-                  fill="white"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
-                  <path d="M12 0C5.373 0 0 5.373 0 12c0 2.113.546 4.1 1.502 5.836L.057 23.215a.75.75 0 0 0 .921.921l5.379-1.445A11.944 11.944 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75a9.695 9.695 0 0 1-4.95-1.355l-.355-.21-3.681.989.988-3.607-.228-.37A9.696 9.696 0 0 1 2.25 12C2.25 6.615 6.615 2.25 12 2.25S21.75 6.615 21.75 12 17.385 21.75 12 21.75z" />
-                </svg>
+                <WhatsAppIcon />
                 <span dir="ltr">{admin.phone}</span>
               </a>
             </div>
@@ -202,6 +212,42 @@ export default function AboutSection({ locale }: { locale: string }) {
                 {isAr ? "فتح في خرائط جوجل ←" : "Open in Google Maps ←"}
               </a>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Technical Feedback ── */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <SectionHeader
+          title={isAr ? "الشكاوى والاقتراحات التقنية" : "Technical Feedback"}
+        />
+        <div className="p-4 sm:p-6 space-y-3" dir="rtl">
+          <p className="font-arabic text-xs sm:text-sm text-gray-500">
+            {isAr
+              ? "نرحب بملاحظاتكم واقتراحاتكم. إذا واجهت أي مشكلة تقنية أو كان لديك اقتراح لتحسين التطبيق، يُرجى التواصل مع مطوّر التطبيق مباشرة."
+              : "Encountered a bug or have a suggestion? Contact the website developer directly."}
+          </p>
+          <div className="flex flex-row items-center justify-between bg-gray-50 rounded-xl px-4 py-3 border border-gray-100">
+            <div>
+              <p className="font-arabic font-bold text-gray-800 text-sm sm:text-base">
+                {isAr ? "م/ عمر منيب" : "Eng. Omar Mounib"}
+              </p>
+              <p className="font-arabic text-xs text-gray-400 mt-0.5">
+                {isAr ? "المطور التقني" : "Developer"}
+              </p>
+            </div>
+            <a
+              href="https://wa.me/201204171020"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-white font-arabic text-xs sm:text-sm font-medium transition-all hover:scale-105 active:scale-95 shadow-sm flex-shrink-0"
+              style={{
+                background: "linear-gradient(135deg, #25D366, #1ebe5d)",
+              }}
+            >
+              <WhatsAppIcon />
+              <span dir="ltr">01204171020</span>
+            </a>
           </div>
         </div>
       </div>
