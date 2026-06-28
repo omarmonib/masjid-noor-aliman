@@ -66,9 +66,9 @@ export default function AboutSection({ locale }: { locale: string }) {
           {isAr ? "معلومات المسجد" : "Mosque Information"}
         </div>
         <div className="divide-y divide-gray-50">
-          {info.map(({ icon, labelAr, labelEn, valueAr, valueEn }) => (
+          {info.map(({ icon, labelAr, labelEn, valueAr, valueEn }, idx) => (
             <div
-              key={labelAr}
+              key={idx}
               className="flex items-center justify-between px-6 py-4"
             >
               <p className="font-arabic text-gray-800 font-medium" dir="rtl">
@@ -100,8 +100,9 @@ export default function AboutSection({ locale }: { locale: string }) {
           <div className="w-32 h-32 rounded-2xl bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden relative">
             <Image
               src="/images/founder.png"
-              alt={isAr ? "الحاج محمود ربيع" : "Haj Mahmoud Rabie"}
+              alt={isAr ? "الحاج محمود رابع" : "Haj Mahmoud Rabiea"}
               fill
+              sizes="128px"
               className="object-cover"
             />
           </div>
