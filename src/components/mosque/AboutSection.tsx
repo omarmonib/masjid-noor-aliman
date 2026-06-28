@@ -21,14 +21,14 @@ export default function AboutSection({ locale }: { locale: string }) {
       icon: "📞",
       labelAr: "التواصل",
       labelEn: "Contact",
-      valueAr: "م/ محمد رابع: ٠١٠٦٦٢٧١٩٨٦",
+      valueAr: "م/ محمد رابع: 01066271986",
       valueEn: "Mohamed Rabiea: 01066271986",
     },
     {
       icon: "📞",
       labelAr: "التواصل",
       labelEn: "Contact",
-      valueAr: "أ/ أحمد رابع: ٠١٠٦٧٤٧٠٤٧٠",
+      valueAr: "أ/ أحمد رابع: 01067470470",
       valueEn: "Ahmed Rabiea: 01067470470",
     },
   ];
