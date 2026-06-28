@@ -109,7 +109,7 @@ export default function AboutSection({ locale }: { locale: string }) {
           <div className="text-center sm:text-right" dir="rtl">
             <p className="font-arabic text-gray-800 leading-relaxed">
               {isAr
-                ? "تأسس مسجد نور الإيمان عام ١٩٨٦م على يد الحاج محمود ربيع، رحمه الله، الذي بذل جهداً كبيراً في بناء المسجد وخدمة أهل المنطقة، فجزاه الله خير الجزاء وجعل ذلك في ميزان حسناته."
+                ? "تأسس مسجد نور الإيمان عام ١٩٨٦م على يد الحاج محمود رابع، رحمه الله، الذي بذل جهداً كبيراً في بناء المسجد وخدمة أهل المنطقة، فجزاه الله خير الجزاء وجعل ذلك في ميزان حسناته."
                 : "Masjid Noor Al-Iman was founded in 1986 by Haj Mahmoud Rabie, who dedicated great effort to building the mosque and serving the local community. May Allah reward him abundantly."}
             </p>
           </div>
