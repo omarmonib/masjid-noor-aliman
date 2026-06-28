@@ -17,7 +17,7 @@ export default function AboutSection({ locale }: { locale: string }) {
       icon: "📍",
       labelAr: "العنوان",
       labelEn: "Address",
-      valueAr: "حي الزهور - بلبيس - محافظة الشرقية - مصر",
+      valueAr: "حي الزهور - بلبيس",
       valueEn: "Al-Zohour District - Belbeis - Al-Sharqia - Egypt",
     },
     {
@@ -106,7 +106,7 @@ export default function AboutSection({ locale }: { locale: string }) {
           >
             {isAr ? (
               <>
-                هذا العمل صدقة جارية في ذكرى الحاج محمود رابع {" "}
+                هذا العمل صدقة جارية في ذكرى الحاج محمود رابع{" "}
                 <span className="whitespace-nowrap">رحمه الله ونوّر قبره</span>
               </>
             ) : (
@@ -125,24 +125,24 @@ export default function AboutSection({ locale }: { locale: string }) {
               key={idx}
               className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 gap-3"
             >
+              <div className="flex items-center gap-1.5 sm:gap-2 text-gray-500 flex-shrink-0">
+                <span className="text-lg sm:text-xl">{icon}</span>
+                <span className="font-arabic text-xs sm:text-sm">
+                  {isAr ? labelAr : labelEn}
+                </span>
+              </div>
               <p
                 className="font-arabic text-gray-800 font-medium text-sm sm:text-base leading-relaxed"
                 dir="rtl"
               >
                 {isAr ? valueAr : valueEn}
               </p>
-              <div className="flex items-center gap-1.5 sm:gap-2 text-gray-500 flex-shrink-0">
-                <span className="font-arabic text-xs sm:text-sm">
-                  {isAr ? labelAr : labelEn}
-                </span>
-                <span className="text-lg sm:text-xl">{icon}</span>
-              </div>
             </div>
           ))}
         </div>
       </div>
 
-       {/* ── Admins / Contact ── */}
+      {/* ── Admins / Contact ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <SectionHeader
           title={isAr ? "التواصل مع الإدارة" : "Contact Administration"}
@@ -242,7 +242,7 @@ export default function AboutSection({ locale }: { locale: string }) {
           title={isAr ? "الشكاوى والاقتراحات التقنية" : "Technical Feedback"}
         />
         <div className="p-4 sm:p-6 space-y-3" dir="rtl">
-          <p className="font-arabic font-bold text-sm sm:text-base text-gray-600 leading-relaxed text-center sm:text-right">
+          <p className="font-arabic text-sm sm:text-base text-gray-600 leading-relaxed text-center sm:text-right">
             {isAr
               ? "نرحب بملاحظاتكم واقتراحاتكم. إذا واجهت أي مشكلة تقنية أو كان لديك اقتراح لتحسين التطبيق، يُرجى التواصل مع مطوّر التطبيق مباشرة."
               : "Encountered a bug or have a suggestion? Contact the website developer directly."}
