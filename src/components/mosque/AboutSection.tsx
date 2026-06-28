@@ -82,17 +82,38 @@ export default function AboutSection({ locale }: { locale: string }) {
     <div className="space-y-4 sm:space-y-6">
       {/* ── Sadaqa Banner ── */}
       <div
-        className="rounded-2xl px-5 py-4 text-center border border-yellow-200 shadow-sm"
-        style={{ background: "linear-gradient(135deg, #fffbeb, #fef3c7)" }}
+        className="relative overflow-hidden rounded-2xl px-4 sm:px-6 py-5 sm:py-6 text-center border border-[#C9A84C]/30 shadow-sm"
+        style={{
+          background:
+            "linear-gradient(135deg, #0D3D28 0%, #1B6B4A 55%, #0D3D28 100%)",
+        }}
       >
-        <p className="font-arabic text-xs sm:text-sm text-yellow-800 leading-relaxed">
-          {isAr
-            ? "هذا العمل صدقة جارية في ذكرى الحاج محمود رابع — رحمه الله ونوّر قبره"
-            : "This work is a continuous charity in memory of the late Haj Mahmoud Rabiea — may Allah have mercy on him"}
-        </p>
-        <p className="text-lg mt-1" style={{ color: "#C9A84C" }}>
-          🌿
-        </p>
+        {/* subtle decorative glow */}
+        <div
+          className="absolute -top-10 -right-10 w-32 h-32 rounded-full opacity-20 blur-2xl pointer-events-none"
+          style={{ background: "#C9A84C" }}
+        />
+        <div
+          className="absolute -bottom-10 -left-10 w-32 h-32 rounded-full opacity-10 blur-2xl pointer-events-none"
+          style={{ background: "#C9A84C" }}
+        />
+
+        <div className="relative z-10 flex flex-col items-center gap-2">
+          <span className="text-2xl">🌿</span>
+          <p
+            className="font-arabic text-bold text-sm sm:text-base text-white/90 leading-relaxed break-words max-w-md mx-auto"
+            dir="rtl"
+          >
+            {isAr ? (
+              <>
+                هذا العمل صدقة جارية في ذكرى الحاج محمود رابع {" "}
+                <span className="whitespace-nowrap">رحمه الله ونوّر قبره</span>
+              </>
+            ) : (
+              "This work is a continuous charity in memory of the late Haj Mahmoud Rabiea — may Allah have mercy on him"
+            )}
+          </p>
+        </div>
       </div>
 
       {/* ── Mosque Info ── */}
@@ -121,7 +142,7 @@ export default function AboutSection({ locale }: { locale: string }) {
         </div>
       </div>
 
-      {/* ── Admins / Contact ── */}
+       {/* ── Admins / Contact ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <SectionHeader
           title={isAr ? "التواصل مع الإدارة" : "Contact Administration"}
@@ -152,7 +173,6 @@ export default function AboutSection({ locale }: { locale: string }) {
           ))}
         </div>
       </div>
-
       {/* ── History / Founder ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <SectionHeader title={isAr ? "نشأة المسجد" : "History of the Mosque"} />
@@ -222,12 +242,12 @@ export default function AboutSection({ locale }: { locale: string }) {
           title={isAr ? "الشكاوى والاقتراحات التقنية" : "Technical Feedback"}
         />
         <div className="p-4 sm:p-6 space-y-3" dir="rtl">
-          <p className="font-arabic text-xs sm:text-sm text-gray-500">
+          <p className="font-arabic font-bold text-sm sm:text-base text-gray-600 leading-relaxed text-center sm:text-right">
             {isAr
               ? "نرحب بملاحظاتكم واقتراحاتكم. إذا واجهت أي مشكلة تقنية أو كان لديك اقتراح لتحسين التطبيق، يُرجى التواصل مع مطوّر التطبيق مباشرة."
               : "Encountered a bug or have a suggestion? Contact the website developer directly."}
           </p>
-          <div className="flex flex-row items-center justify-between bg-gray-50 rounded-xl px-4 py-3 border border-gray-100">
+          <div className="flex flex-col sm:flex-row items-center sm:justify-between gap-3 bg-gray-50 rounded-xl px-4 py-3 border border-gray-100 text-center sm:text-right">
             <div>
               <p className="font-arabic font-bold text-gray-800 text-sm sm:text-base">
                 {isAr ? "م/ عمر منيب" : "Eng. Omar Mounib"}
@@ -240,7 +260,7 @@ export default function AboutSection({ locale }: { locale: string }) {
               href="https://wa.me/201204171020"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-white font-arabic text-xs sm:text-sm font-medium transition-all hover:scale-105 active:scale-95 shadow-sm flex-shrink-0"
+              className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-white font-arabic text-xs sm:text-sm font-medium transition-all hover:scale-105 active:scale-95 shadow-sm flex-shrink-0 whitespace-nowrap"
               style={{
                 background: "linear-gradient(135deg, #25D366, #1ebe5d)",
               }}
