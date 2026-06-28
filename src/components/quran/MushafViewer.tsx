@@ -178,36 +178,36 @@ export default function MushafViewer({ locale }: Props) {
       .then((r) => r.json())
       .then(async (json) => {
         const allWords: Word[] = [];
-     json.verses?.forEach(
-       (verse: {
-         verse_key: string;
-         words: {
-           id: number;
-           position: number;
-           code_v2: string;
-           text_qpc_hafs: string;
-           text: string;
-           page_number: number;
-           line_number: number;
-           char_type_name: string;
-           audio_url?: string;
-         }[];
-       }) => {
-         verse.words?.forEach((w) => {
-           allWords.push({
-             id: w.id,
-             position: w.position,
-             codeV2: w.code_v2 || "",
-             textQpcHafs: w.text_qpc_hafs || w.text || "",
-             pageNumber: w.page_number || 1,
-             lineNumber: w.line_number || 1,
-             charTypeName: w.char_type_name || "word",
-             verseKey: verse.verse_key,
-             audioUrl: w.audio_url,
-           });
-         });
-       },
-     );
+        json.verses?.forEach(
+          (verse: {
+            verse_key: string;
+            words: {
+              id: number;
+              position: number;
+              code_v2: string;
+              text_qpc_hafs: string;
+              text: string;
+              page_number: number;
+              line_number: number;
+              char_type_name: string;
+              audio_url?: string;
+            }[];
+          }) => {
+            verse.words?.forEach((w) => {
+              allWords.push({
+                id: w.id,
+                position: w.position,
+                codeV2: w.code_v2 || "",
+                textQpcHafs: w.text_qpc_hafs || w.text || "",
+                pageNumber: w.page_number || 1,
+                lineNumber: w.line_number || 1,
+                charTypeName: w.char_type_name || "word",
+                verseKey: verse.verse_key,
+                audioUrl: w.audio_url,
+              });
+            });
+          },
+        );
 
         setWords(allWords);
 
@@ -421,7 +421,7 @@ export default function MushafViewer({ locale }: Props) {
                   <p
                     style={{
                       fontFamily: "'UthmanicHafs1Ver18', 'Amiri Quran', serif",
-                      fontSize: "28px",
+                      fontSize: "clamp(12px, 4.5vw, 28px)",
                       color: "#1a1a1a",
                     }}
                   >
@@ -450,7 +450,7 @@ export default function MushafViewer({ locale }: Props) {
                             style={{
                               fontFamily:
                                 "'UthmanicHafs1Ver18', 'Amiri Quran', serif",
-                              fontSize: "28px",
+                              fontSize: "clamp(12px, 4.5vw, 28px)",
                               color: "#C9A84C",
                               margin: "0 2px",
                             }}
@@ -470,7 +470,7 @@ export default function MushafViewer({ locale }: Props) {
                             fontFamily: fontLoaded
                               ? `p${word.pageNumber}-v2`
                               : "'UthmanicHafs1Ver18', 'Amiri Quran', serif",
-                            fontSize: "32px",
+                            fontSize: "clamp(14px, 4vw, 32px)",
                             lineHeight: "2.2",
                             color:
                               playingWord === word.id ? "#1B6B4A" : "#1a1a1a",
@@ -526,8 +526,8 @@ export default function MushafViewer({ locale }: Props) {
       </div>
 
       {/* Preload UthmanicHafs font */}
-      <style>{`
-        @font-face {
+      <style suppressHydrationWarning>{`
+         @font-face {
           font-family: 'UthmanicHafs1Ver18';
           src: url('${CDN}/fonts/quran/hafs/uthmanic_hafs/UthmanicHafs1Ver18.woff2') format('woff2');
           font-display: swap;
