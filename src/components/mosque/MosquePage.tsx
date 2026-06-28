@@ -1,22 +1,37 @@
 "use client";
 
 import { useState } from "react";
+import AboutSection from "./AboutSection";
 
 interface Props {
   locale: string;
 }
 
-type Tab = "news" | "events" | "about";
+type Tab = "about" | "news" | "events";
 
 export default function MosquePage({ locale }: Props) {
-  const [activeTab, setActiveTab] = useState<Tab>("news");
+  const [activeTab, setActiveTab] = useState<Tab>("about");
   const isAr = locale === "ar";
 
   const tabs: { id: Tab; labelAr: string; labelEn: string; icon: string }[] = [
+    { id: "about", labelAr: "عن المسجد", labelEn: "About", icon: "🕌" },
     { id: "news", labelAr: "الأخبار والإعلانات", labelEn: "News", icon: "📰" },
     { id: "events", labelAr: "الفعاليات", labelEn: "Events", icon: "📅" },
-    { id: "about", labelAr: "عن المسجد", labelEn: "About", icon: "🕌" },
   ];
+
+  const UnderMaintenance = () => (
+    <div className="text-center py-20">
+      <div className="text-6xl mb-6">🔧</div>
+      <h2 className="font-arabic text-2xl font-bold text-gray-700 mb-3">
+        {isAr ? "سيتم إضافة التفاصيل قريباً" : "Details will be added soon"}
+      </h2>
+      <p className="font-arabic text-gray-400 text-base">
+        {isAr
+          ? "نعمل على تحديث هذا القسم. تابعونا للمزيد."
+          : "We are working on updating this section. Stay tuned."}
+      </p>
+    </div>
+  );
 
   return (
     <main className="min-h-screen bg-surface">
@@ -53,17 +68,11 @@ export default function MosquePage({ locale }: Props) {
         </div>
       </div>
 
-      {/* Placeholder */}
-      <div className="max-w-3xl mx-auto px-4 py-20 text-center">
-        <div className="text-6xl mb-6">🔧</div>
-        <h2 className="font-arabic text-2xl font-bold text-gray-700 mb-3">
-          {isAr ? "سيتم إضافة التفاصيل قريباً" : "Details will be added soon"}
-        </h2>
-        <p className="font-arabic text-gray-400 text-base">
-          {isAr
-            ? "نعمل على تحديث هذا القسم. تابعونا للمزيد."
-            : "We are working on updating this section. Stay tuned."}
-        </p>
+      {/* Content */}
+      <div className="max-w-3xl mx-auto px-4 py-10">
+        {activeTab === "about" && <AboutSection locale={locale} />}
+        {activeTab === "news" && <UnderMaintenance />}
+        {activeTab === "events" && <UnderMaintenance />}
       </div>
     </main>
   );
