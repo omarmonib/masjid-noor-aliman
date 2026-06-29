@@ -11,15 +11,6 @@ export interface RadioStation {
 export const RADIO_STATIONS: RadioStation[] = [
   // ── Quran Radio Stations ────────────────────────────────────────
   {
-    id: "saudi-quran",
-    nameAr: "إذاعة القرآن الكريم — الجزائر",
-    nameEn: "Algeria Quran Radio",
-    country: "🇩🇿 الجزائر",
-    category: "quran",
-    streamUrl: "https://radiocoran.ice.infomaniak.ch/stream",
-    icon: "📻",
-  },
-  {
     id: "cairo-quran",
     nameAr: "إذاعة القرآن الكريم — مصر",
     nameEn: "Egyptian Quran Radio (Cairo)",
