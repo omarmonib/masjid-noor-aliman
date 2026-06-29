@@ -61,26 +61,35 @@ export default function RadioPage({ locale }: { locale: string }) {
         audioRef.current?.pause();
         setIsPlaying(false);
       } else {
-        audioRef.current?.play().catch(() => {
-          setError(isAr ? "تعذّر تشغيل البث." : "Playback failed.");
-        });
-        setIsPlaying(true);
+        // Resume — must call play() directly in the gesture handler
+        const playPromise = audioRef.current?.play();
+        if (playPromise) {
+          playPromise
+            .then(() => setIsPlaying(true))
+            .catch(() =>
+              setError(isAr ? "تعذّر تشغيل البث." : "Playback failed."),
+            );
+        }
       }
       return;
     }
 
-    // Stop current
+    // Stop current audio completely
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.src = "";
       audioRef.current.load();
+      audioRef.current = null;
     }
 
     setCurrentStation(station);
     setIsPlaying(false);
     setIsLoading(true);
 
+    // Create audio element and set src in the same synchronous tick
+    // as the user gesture — critical for mobile autoplay policy
     const audio = new Audio();
+    audio.preload = "none";
     audio.volume = volume;
     audioRef.current = audio;
 
@@ -90,7 +99,9 @@ export default function RadioPage({ locale }: { locale: string }) {
       setError("");
     };
     audio.onwaiting = () => setIsLoading(true);
-    audio.oncanplay = () => setIsLoading(false);
+    audio.oncanplay = () => {
+      if (!isPlaying) setIsLoading(false);
+    };
     audio.onerror = () => {
       setIsLoading(false);
       setIsPlaying(false);
@@ -102,12 +113,24 @@ export default function RadioPage({ locale }: { locale: string }) {
     };
     audio.onpause = () => setIsPlaying(false);
     audio.onended = () => setIsPlaying(false);
+    audio.onstalled = () => {
+      // Stream stalled — common on mobile with slow connections
+      setIsLoading(true);
+    };
 
+    // Set src and play() in the same synchronous call stack as the tap
     audio.src = station.streamUrl;
-    audio.play().catch(() => {
-      setIsLoading(false);
-      setError(isAr ? "تعذّر تشغيل البث." : "Playback failed.");
-    });
+    const playPromise = audio.play();
+    if (playPromise) {
+      playPromise.catch((e) => {
+        // NotAllowedError = autoplay blocked (shouldn't happen since we're in gesture handler)
+        // AbortError = src changed before play resolved (safe to ignore)
+        if (e?.name !== "AbortError") {
+          setIsLoading(false);
+          setError(isAr ? "تعذّر تشغيل البث." : "Playback failed.");
+        }
+      });
+    }
   };
 
   const handleVolumeChange = (val: number) => {
@@ -120,6 +143,7 @@ export default function RadioPage({ locale }: { locale: string }) {
       audioRef.current.pause();
       audioRef.current.src = "";
       audioRef.current.load();
+      audioRef.current = null;
     }
     setIsPlaying(false);
     setIsLoading(false);
