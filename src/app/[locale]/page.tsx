@@ -68,6 +68,14 @@ export default async function HomePage({
       descAr: "استمع للقرآن والإذاعات",
       descEn: "Listen to Quran radio",
     },
+    {
+      href: `/${locale}/sermons`,
+      icon: "🎙️",
+      labelAr: "الخطب والتسجيلات",
+      labelEn: "Sermons",
+      descAr: "استمع للخطب والتسجيلات",
+      descEn: "Listen to Sermons",
+    },
   ];
 
   return (
@@ -89,7 +97,7 @@ export default async function HomePage({
             />
           </div>
           {/* 2 cols on mobile, 3 on md+ — always even */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {features.map((f) => (
               <Link
                 key={f.href}
