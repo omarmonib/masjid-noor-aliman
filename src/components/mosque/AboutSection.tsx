@@ -244,8 +244,8 @@ export default function AboutSection({ locale }: { locale: string }) {
         <div className="p-4 sm:p-6 space-y-3" dir="rtl">
           <p className="font-arabic text-sm sm:text-base text-gray-600 leading-relaxed text-center sm:text-right">
             {isAr
-              ? "نرحب بملاحظاتكم واقتراحاتكم. إذا واجهت أي مشكلة تقنية أو كان لديك اقتراح لتحسين التطبيق، يُرجى التواصل مع مطوّر التطبيق مباشرة."
-              : "Encountered a bug or have a suggestion? Contact the website developer directly."}
+              ? "إذا واجهت مشكلة تقنية أو لديك اقتراح لتحسين الموقع، يمكنك التواصل مع الدعم الفني."
+              : "If you encounter a technical issue or have a suggestion to improve the website, please feel free to contact Technical Support."}
           </p>
           <div className="flex flex-col sm:flex-row items-center sm:justify-between gap-3 bg-gray-50 rounded-xl px-4 py-3 border border-gray-100 text-center sm:text-right">
             <div>
@@ -253,7 +253,7 @@ export default function AboutSection({ locale }: { locale: string }) {
                 {isAr ? "م/ عمر منيب" : "Eng. Omar Mounib"}
               </p>
               <p className="font-arabic text-xs text-gray-400 mt-0.5">
-                {isAr ? "المطور التقني" : "Developer"}
+                {isAr ? "الدعم الفني" : "Developer"}
               </p>
             </div>
             <a

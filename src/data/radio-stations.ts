@@ -16,7 +16,7 @@ export const RADIO_STATIONS: RadioStation[] = [
     nameEn: "Saudi Quran Radio",
     country: "🇸🇦 السعودية",
     category: "quran",
-    streamUrl: "https://stream.radiojar.com/0tpy1h0kxtzuv",
+    streamUrl: "https://quraanfm-radio.mbc.net/quraanfm-radio.m3u8",
     icon: "📻",
   },
   {
@@ -25,7 +25,8 @@ export const RADIO_STATIONS: RadioStation[] = [
     nameEn: "Egyptian Quran Radio (Cairo)",
     country: "🇪🇬 مصر",
     category: "quran",
-    streamUrl: "https://stream.radiojar.com/8s5u5tpdtwzuv",
+    streamUrl:
+      "http://n04.radiojar.com/8s5u5tpdtwzuv?rj-ttl=5&rj-tok=AAABmvDwUAYA2W079fGwLehv0A",
     icon: "📻",
   },
   {

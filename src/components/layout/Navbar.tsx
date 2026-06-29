@@ -15,6 +15,7 @@ export default function Navbar({ locale }: { locale: string }) {
     { href: "", labelAr: "الرئيسية", labelEn: "Home" },
     { href: "/hadith", labelAr: "الحديث", labelEn: "Hadith" },
     { href: "/quran", labelAr: "القرآن", labelEn: "Quran" },
+    { href: "/sermons", labelAr: "الخطب والتسجيلات", labelEn: "Sermons" },
     { href: "/adhkar", labelAr: "الأذكار", labelEn: "Adhkar" },
     {
       href: "/prayer-times",
@@ -66,6 +67,15 @@ export default function Navbar({ locale }: { locale: string }) {
 
         {/* Auth button */}
         <div className="hidden md:flex items-center gap-2">
+          {session?.user?.role === "ADMIN" && (
+            <Link
+              href={`/${locale}/admin/media`}
+              className="font-arabic text-sm px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-primary transition-colors"
+            >
+              {isAr ? "لوحة الإدارة" : "Admin"}
+            </Link>
+          )}
+
           {session ? (
             <div className="flex items-center gap-2">
               <span className="font-arabic text-sm text-gray-600">
