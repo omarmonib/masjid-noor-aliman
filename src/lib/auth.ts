@@ -1,4 +1,5 @@
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
 import { prisma } from "./prisma";
 import bcrypt from "bcryptjs";
 import type { NextAuthOptions } from "next-auth";
@@ -11,6 +12,10 @@ export const authOptions: NextAuthOptions = {
     signIn: "/auth/login",
   },
   providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
     CredentialsProvider({
       name: "credentials",
       credentials: {
@@ -39,17 +44,56 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    jwt({ token, user }: { token: JWT; user?: { id: string; role: string } }) {
-      if (user) {
-        token.id = user.id;
-        token.role = user.role;
+    async signIn({ user, account }) {
+      // Auto-create user record for Google sign-ins
+      if (account?.provider === "google") {
+        try {
+          const existing = await prisma.user.findUnique({
+            where: { email: user.email! },
+          });
+          if (!existing) {
+            await prisma.user.create({
+              data: {
+                email: user.email!,
+                name: user.name ?? "",
+                image: user.image ?? "",
+                role: "USER",
+              },
+            });
+          }
+        } catch (e) {
+          console.error("Google signIn DB error:", e);
+          return false;
+        }
+      }
+      return true;
+    },
+    async jwt({ token, user, account }) {
+      if (user && account) {
+        if (account.provider === "credentials") {
+          token.id = (user as { id: string; role: string }).id;
+          token.role = (user as { id: string; role: string }).role;
+        }
+        if (account.provider === "google") {
+          try {
+            const dbUser = await prisma.user.findUnique({
+              where: { email: user.email! },
+            });
+            if (dbUser) {
+              token.id = dbUser.id;
+              token.role = dbUser.role;
+            }
+          } catch (e) {
+            console.error("Google JWT DB error:", e);
+          }
+        }
       }
       return token;
     },
     session({ session, token }: { session: Session; token: JWT }) {
       if (token && session.user) {
         session.user.id = token.id as string;
-        session.user.role = token.role as string;
+        session.user.role = (token.role as string) ?? "USER";
       }
       return session;
     },
