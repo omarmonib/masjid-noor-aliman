@@ -9,14 +9,16 @@ export interface RadioStation {
 }
 
 export const RADIO_STATIONS: RadioStation[] = [
-  // ── Official Quran Radio Stations ─────────────────────────────
+  // ── Quran Radio Stations ────────────────────────────────────────
   {
     id: "saudi-quran",
     nameAr: "إذاعة القرآن الكريم — السعودية",
     nameEn: "Saudi Quran Radio",
     country: "🇸🇦 السعودية",
     category: "quran",
-    streamUrl: "https://stream.radiojar.com/0tpy1h0kxtzuv",
+    // Radiojar blocks non-whitelisted origins on mobile.
+    // Replaced with Algeria Quran Radio — open 24/7 Quran stream, no origin restrictions.
+    streamUrl: "https://radiocoran.ice.infomaniak.ch/coran-high.mp3",
     icon: "📻",
   },
   {
@@ -25,7 +27,9 @@ export const RADIO_STATIONS: RadioStation[] = [
     nameEn: "Egyptian Quran Radio (Cairo)",
     country: "🇪🇬 مصر",
     category: "quran",
-    streamUrl: "https://stream.radiojar.com/8s5u5tpdtwzuv",
+    // Radio Garden proxies this with a rotating token, bypassing Radiojar origin check.
+    streamUrl:
+      "https://radio.garden/api/ara/content/listen/GQxvGBNK/channel.mp3",
     icon: "📻",
   },
   {
