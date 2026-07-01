@@ -1,6 +1,5 @@
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
-import { prisma } from "./prisma";
 import bcrypt from "bcryptjs";
 import type { NextAuthOptions } from "next-auth";
 import type { JWT } from "next-auth/jwt";
@@ -25,29 +24,33 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         const email = credentials?.email as string | undefined;
         const password = credentials?.password as string | undefined;
-
         if (!email || !password) return null;
-
-        const user = await prisma.user.findUnique({ where: { email } });
-        if (!user || !user.password) return null;
-
-        const valid = await bcrypt.compare(password, user.password);
-        if (!valid) return null;
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name ?? "",
-          role: user.role,
-        };
+        try {
+          const { prisma } = await import("@/lib/prisma");
+          const user = await prisma.user.findUnique({ where: { email } });
+          if (!user || !user.password) return null;
+          const valid = await bcrypt.compare(password, user.password);
+          if (!valid) return null;
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name ?? "",
+            role: user.role,
+          };
+        } catch (e) {
+          console.error("Credentials authorize error:", e);
+          return null;
+        }
       },
     }),
   ],
   callbacks: {
     async signIn({ user, account }) {
-      // Auto-create user record for Google sign-ins
+      // For Google sign-ins, auto-create user — but ALWAYS return true
+      // so a DB error doesn't block the login
       if (account?.provider === "google") {
         try {
+          const { prisma } = await import("@/lib/prisma");
           const existing = await prisma.user.findUnique({
             where: { email: user.email! },
           });
@@ -62,8 +65,8 @@ export const authOptions: NextAuthOptions = {
             });
           }
         } catch (e) {
+          // Log but don't block — user can still sign in even if DB write fails
           console.error("Google signIn DB error:", e);
-          return false;
         }
       }
       return true;
@@ -76,15 +79,19 @@ export const authOptions: NextAuthOptions = {
         }
         if (account.provider === "google") {
           try {
+            const { prisma } = await import("@/lib/prisma");
             const dbUser = await prisma.user.findUnique({
               where: { email: user.email! },
             });
             if (dbUser) {
               token.id = dbUser.id;
               token.role = dbUser.role;
+            } else {
+              token.role = "USER";
             }
           } catch (e) {
             console.error("Google JWT DB error:", e);
+            token.role = "USER";
           }
         }
       }
