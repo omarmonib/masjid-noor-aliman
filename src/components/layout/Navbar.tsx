@@ -69,7 +69,7 @@ export default function Navbar({ locale }: { locale: string }) {
         <div className="hidden md:flex items-center gap-2">
           {session?.user?.role === "ADMIN" && (
             <Link
-              href={`/${locale}/admin/media`}
+              href={`/${locale}/admin`}
               className="font-arabic text-sm px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-primary transition-colors"
             >
               {isAr ? "لوحة الإدارة" : "Admin"}
