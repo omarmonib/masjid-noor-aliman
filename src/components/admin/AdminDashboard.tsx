@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from "react";
 
+const PROTECTED_ADMIN_EMAIL = "omar.monib.03@gmail.com";
+
+
 interface User {
   id: string;
   name: string | null;
@@ -311,15 +314,25 @@ export default function AdminDashboard({ locale }: { locale: string }) {
                           )}
                         </p>
                       </div>
-                      <select
-                        value={user.role}
-                        onChange={(e) => updateRole(user.id, e.target.value)}
-                        disabled={updatingRole === user.id}
-                        className="font-arabic text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
-                      >
-                        <option value="USER">{isAr ? "مستخدم" : "User"}</option>
-                        <option value="ADMIN">{isAr ? "مدير" : "Admin"}</option>
-                      </select>
+                      {user.email === PROTECTED_ADMIN_EMAIL ? (
+                        <span className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 font-arabic">
+                          🔒 {isAr ? "مدير أساسي" : "Founding Admin"}
+                        </span>
+                      ) : (
+                        <select
+                          value={user.role}
+                          onChange={(e) => updateRole(user.id, e.target.value)}
+                          disabled={updatingRole === user.id}
+                          className="font-arabic text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
+                        >
+                          <option value="USER">
+                            {isAr ? "مستخدم" : "User"}
+                          </option>
+                          <option value="ADMIN">
+                            {isAr ? "مدير" : "Admin"}
+                          </option>
+                        </select>
+                      )}
                     </div>
                   ))}
                   {users.length === 0 && (
