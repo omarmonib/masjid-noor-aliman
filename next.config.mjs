@@ -13,6 +13,17 @@ const nextConfig = {
       { protocol: "https", hostname: "cdn.islamic.network" },
     ],
   },
+  // @libsql/client uses dynamic requires that confuse webpack's static
+  // bundling (it tries to parse README/LICENSE files as JS). Keep these
+  // external so Next just require()s them natively in the Node server
+  // runtime instead of bundling them.
+  experimental: {
+    serverComponentsExternalPackages: [
+      "@libsql/client",
+      "@prisma/adapter-libsql",
+      "libsql",
+    ],
+  },
 };
 
 export default withNextIntl(nextConfig);
