@@ -46,8 +46,6 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ user, account }) {
-      // For Google sign-ins, auto-create user — but ALWAYS return true
-      // so a DB error doesn't block the login
       if (account?.provider === "google") {
         try {
           const { prisma } = await import("@/lib/prisma");
@@ -65,13 +63,13 @@ export const authOptions: NextAuthOptions = {
             });
           }
         } catch (e) {
-          // Log but don't block — user can still sign in even if DB write fails
           console.error("Google signIn DB error:", e);
         }
       }
       return true;
     },
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account, trigger }) {
+      // On initial sign-in, fetch role from DB
       if (user && account) {
         if (account.provider === "credentials") {
           token.id = (user as { id: string; role: string }).id;
@@ -95,6 +93,24 @@ export const authOptions: NextAuthOptions = {
           }
         }
       }
+
+      // On every token refresh, re-fetch role from DB to pick up changes
+      if (trigger !== "signIn" && trigger !== "signUp" && token.email) {
+        try {
+          const { prisma } = await import("@/lib/prisma");
+          const dbUser = await prisma.user.findUnique({
+            where: { email: token.email as string },
+            select: { id: true, role: true },
+          });
+          if (dbUser) {
+            token.id = dbUser.id;
+            token.role = dbUser.role;
+          }
+        } catch {
+          // keep existing token values on DB error
+        }
+      }
+
       return token;
     },
     session({ session, token }: { session: Session; token: JWT }) {
