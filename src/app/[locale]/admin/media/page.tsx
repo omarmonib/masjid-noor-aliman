@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import MediaManager from "@/components/admin/MediaManager";
+import AccessDenied from "@/components/admin/AccessDenied";
 
 export default async function AdminMediaPage({
   params,
@@ -11,8 +12,12 @@ export default async function AdminMediaPage({
   const { locale } = await params;
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "ADMIN") {
-    redirect(`/${locale}/auth/login`);
+  if (!session) {
+    redirect(`/${locale}/auth/login?callbackUrl=/${locale}/admin/media`);
+  }
+
+  if (session.user.role !== "ADMIN") {
+    return <AccessDenied locale={locale} />;
   }
 
   const isAr = locale === "ar";

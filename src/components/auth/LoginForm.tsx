@@ -5,9 +5,18 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-export default function LoginForm({ locale }: { locale: string }) {
+interface Props {
+  locale: string;
+  callbackUrl?: string;
+}
+
+export default function LoginForm({ locale, callbackUrl }: Props) {
   const isAr = locale === "ar";
   const router = useRouter();
+
+  // Only trust internal, relative paths — never redirect off-site
+  const destination =
+    callbackUrl && callbackUrl.startsWith("/") ? callbackUrl : `/${locale}`;
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -35,14 +44,14 @@ export default function LoginForm({ locale }: { locale: string }) {
           : "Invalid email or password",
       );
     } else {
-      router.push(`/${locale}`);
+      router.push(destination);
       router.refresh();
     }
   };
 
   const handleGoogle = async () => {
     setGoogleLoading(true);
-    await signIn("google", { callbackUrl: `/${locale}` });
+    await signIn("google", { callbackUrl: destination });
   };
 
   return (
