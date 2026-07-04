@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { MEDIA_TYPES, formatDuration, type MediaItem } from "@/lib/media";
 
+const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+
 export default function MediaLibrary({ locale }: { locale: string }) {
   const isAr = locale === "ar";
   const [items, setItems] = useState<MediaItem[]>([]);
@@ -14,6 +16,10 @@ export default function MediaLibrary({ locale }: { locale: string }) {
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
+  const [volume, setVolume] = useState(1);
+  const [prevVolume, setPrevVolume] = useState(1);
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -48,6 +54,8 @@ export default function MediaLibrary({ locale }: { locale: string }) {
     }
 
     const audio = new Audio(item.url);
+    audio.volume = volume;
+    audio.playbackRate = playbackRate;
     audioRef.current = audio;
     setPlayingId(item.id);
     setIsPlaying(false);
@@ -79,6 +87,55 @@ export default function MediaLibrary({ locale }: { locale: string }) {
     const rect = e.currentTarget.getBoundingClientRect();
     const ratio = (e.clientX - rect.left) / rect.width;
     audio.currentTime = ratio * audio.duration;
+  };
+
+  const skip = (seconds: number) => {
+    const audio = audioRef.current;
+    if (!audio || !audio.duration) return;
+    audio.currentTime = Math.min(
+      Math.max(0, audio.currentTime + seconds),
+      audio.duration,
+    );
+  };
+
+  const changeVolume = (v: number) => {
+    setVolume(v);
+    if (v > 0) setPrevVolume(v);
+    if (audioRef.current) audioRef.current.volume = v;
+  };
+
+  const toggleMute = () => {
+    if (volume > 0) {
+      changeVolume(0);
+    } else {
+      changeVolume(prevVolume || 1);
+    }
+  };
+
+  const changeSpeed = (rate: number) => {
+    setPlaybackRate(rate);
+    if (audioRef.current) audioRef.current.playbackRate = rate;
+  };
+
+  const handleDownload = async (item: MediaItem) => {
+    setDownloadingId(item.id);
+    try {
+      const res = await fetch(item.url);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const ext = item.url.split(".").pop()?.split("?")[0] || "mp3";
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = `${(isAr ? item.titleAr : item.titleEn || item.titleAr).replace(/[/\\?%*:|"<>]/g, "-")}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      // Fallback — open in new tab if fetch/blob fails (e.g. CORS)
+      window.open(item.url, "_blank");
+    }
+    setDownloadingId(null);
   };
 
   return (
@@ -170,6 +227,7 @@ export default function MediaLibrary({ locale }: { locale: string }) {
           filtered.map((item) => {
             const active = playingId === item.id;
             const activePlaying = active && isPlaying;
+            const isDownloading = downloadingId === item.id;
             return (
               <div
                 key={item.id}
@@ -222,6 +280,20 @@ export default function MediaLibrary({ locale }: { locale: string }) {
                       </span>
                     </div>
                   </div>
+
+                  {/* Download button — always visible */}
+                  <button
+                    onClick={() => handleDownload(item)}
+                    disabled={isDownloading}
+                    title={isAr ? "تحميل" : "Download"}
+                    className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 border border-gray-200 text-gray-500 hover:border-primary/40 hover:text-primary transition-colors disabled:opacity-50"
+                  >
+                    {isDownloading ? (
+                      <div className="w-4 h-4 border-2 border-gray-300 border-t-primary rounded-full animate-spin" />
+                    ) : (
+                      <span className="text-base">⬇️</span>
+                    )}
+                  </button>
                 </div>
 
                 {/* Description */}
@@ -236,7 +308,8 @@ export default function MediaLibrary({ locale }: { locale: string }) {
 
                 {/* Player */}
                 {active && (
-                  <div className="px-5 pb-5 pt-1">
+                  <div className="px-5 pb-5 pt-1 space-y-3">
+                    {/* Seek bar */}
                     <div
                       onClick={seek}
                       className="h-2 rounded-full bg-gray-100 cursor-pointer relative overflow-hidden"
@@ -250,9 +323,71 @@ export default function MediaLibrary({ locale }: { locale: string }) {
                         }}
                       />
                     </div>
-                    <div className="flex items-center justify-between mt-1.5 text-xs font-mono text-gray-400">
+                    <div className="flex items-center justify-between text-xs font-mono text-gray-400">
                       <span>{formatDuration(currentTime)}</span>
                       <span>{formatDuration(duration)}</span>
+                    </div>
+
+                    {/* Control bar */}
+                    <div className="flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap pt-1 border-t border-gray-50">
+                      {/* Skip buttons */}
+                      <div className="flex items-center gap-1.5 pt-3">
+                        <button
+                          onClick={() => skip(-10)}
+                          title={isAr ? "رجوع ١٠ ثوانٍ" : "Back 10s"}
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-primary transition-colors text-sm"
+                        >
+                          {isAr ? "10⟲" : "⟲10"}
+                        </button>
+                        <button
+                          onClick={() => skip(10)}
+                          title={isAr ? "تقديم ١٠ ثوانٍ" : "Forward 10s"}
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-primary transition-colors text-sm"
+                        >
+                          {isAr ? "⟳10" : "10⟳"}
+                        </button>
+                      </div>
+
+                      {/* Speed */}
+                      <div className="flex items-center gap-1.5 pt-3">
+                        <span className="text-xs text-gray-400 font-arabic">
+                          {isAr ? "السرعة" : "Speed"}
+                        </span>
+                        <select
+                          value={playbackRate}
+                          onChange={(e) =>
+                            changeSpeed(parseFloat(e.target.value))
+                          }
+                          className="text-xs font-mono border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white text-gray-700"
+                        >
+                          {SPEED_OPTIONS.map((s) => (
+                            <option key={s} value={s}>
+                              {s}x
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Volume */}
+                      <div className="flex items-center gap-2 pt-3 flex-1 sm:flex-none min-w-[120px]">
+                        <button
+                          onClick={toggleMute}
+                          className="text-gray-500 hover:text-primary transition-colors text-sm flex-shrink-0"
+                        >
+                          {volume === 0 ? "🔇" : volume < 0.5 ? "🔉" : "🔊"}
+                        </button>
+                        <input
+                          type="range"
+                          min={0}
+                          max={1}
+                          step={0.05}
+                          value={volume}
+                          onChange={(e) =>
+                            changeVolume(parseFloat(e.target.value))
+                          }
+                          className="flex-1 sm:w-20 accent-[#1B6B4A]"
+                        />
+                      </div>
                     </div>
                   </div>
                 )}
