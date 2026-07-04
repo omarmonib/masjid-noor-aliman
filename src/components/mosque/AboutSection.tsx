@@ -235,42 +235,6 @@ export default function AboutSection({ locale }: { locale: string }) {
           </div>
         </div>
       </div>
-
-      {/* ── Technical Feedback ── */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <SectionHeader
-          title={isAr ? "الشكاوى والاقتراحات التقنية" : "Technical Feedback"}
-        />
-        <div className="p-4 sm:p-6 space-y-3" dir="rtl">
-          <p className="font-arabic text-sm sm:text-base text-gray-600 leading-relaxed text-center sm:text-right">
-            {isAr
-              ? "إذا واجهت مشكلة تقنية أو لديك اقتراح لتحسين الموقع، يمكنك التواصل مع الدعم الفني."
-              : "If you encounter a technical issue or have a suggestion to improve the website, please feel free to contact Technical Support."}
-          </p>
-          <div className="flex flex-col sm:flex-row items-center sm:justify-between gap-3 bg-gray-50 rounded-xl px-4 py-3 border border-gray-100 text-center sm:text-right">
-            <div>
-              <p className="font-arabic font-bold text-gray-800 text-sm sm:text-base">
-                {isAr ? "م/ عمر منيب" : "Eng. Omar Mounib"}
-              </p>
-              <p className="font-arabic text-xs text-gray-400 mt-0.5">
-                {isAr ? "الدعم الفني" : "Developer"}
-              </p>
-            </div>
-            <a
-              href="https://wa.me/201204171020"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-white font-arabic text-xs sm:text-sm font-medium transition-all hover:scale-105 active:scale-95 shadow-sm flex-shrink-0 whitespace-nowrap"
-              style={{
-                background: "linear-gradient(135deg, #25D366, #1ebe5d)",
-              }}
-            >
-              <WhatsAppIcon />
-              <span dir="ltr">01204171020</span>
-            </a>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
