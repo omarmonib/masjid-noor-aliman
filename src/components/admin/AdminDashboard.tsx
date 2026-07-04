@@ -199,12 +199,6 @@ export default function AdminDashboard({ locale }: { locale: string }) {
                         labelEn: "Manage Sermons",
                       },
                       {
-                        href: "/ar/mosque",
-                        icon: "🕌",
-                        labelAr: "صفحة المسجد",
-                        labelEn: "Mosque Page",
-                      },
-                      {
                         href: "/ar/admin/news",
                         icon: "📰",
                         labelAr: "إدارة الأخبار والإعلانات",
