@@ -234,7 +234,7 @@ export default function AboutSection({ locale }: { locale: string }) {
             </div>
           </div>
         </div>
-      </div>
+      </div>    
     </div>
   );
 }
