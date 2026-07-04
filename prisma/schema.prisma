@@ -21,6 +21,35 @@ model Media {
   updatedAt   DateTime @updatedAt
 }
 
+model NewsPost {
+  id          String   @id @default(cuid())
+  titleAr     String
+  titleEn     String?
+  summaryAr   String?
+  summaryEn   String?
+  contentAr   String
+  contentEn   String?
+  category    String   @default("news") // "news" | "announcement"
+  image       String?
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model MosqueEvent {
+  id            String   @id @default(cuid())
+  titleAr       String
+  titleEn       String?
+  descriptionAr String?
+  descriptionEn String?
+  date          DateTime
+  time          String
+  location      String
+  category      String   @default("other") // lecture | quran | charity | celebration | other
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
 model User {
   id            String    @id @default(cuid())
   name          String?

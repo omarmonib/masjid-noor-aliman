@@ -219,7 +219,7 @@ export default function MediaLibrary({ locale }: { locale: string }) {
                     : "border-gray-100 hover:border-primary/20"
                 } bg-white`}
               >
-                <div className="flex items-center gap-4 p-4 sm:p-5">
+                <div className="flex items-center gap-4 p-3 sm:p-4">
                   {/* Play button */}
                   <button
                     onClick={() => playItem(item)}
@@ -243,24 +243,13 @@ export default function MediaLibrary({ locale }: { locale: string }) {
                     <h3 className="font-arabic font-bold text-gray-800 text-base sm:text-lg truncate">
                       {isAr ? item.titleAr : item.titleEn || item.titleAr}
                     </h3>
-                    <div className="flex items-center gap-2 justify-end mt-1 flex-wrap">
-                      {item.speaker && (
+                    {item.speaker && (
+                      <div className="mt-1">
                         <span className="text-xs sm:text-sm text-primary font-arabic font-medium">
                           {item.speaker}
                         </span>
-                      )}
-                      <span className="text-xs text-gray-300">·</span>
-                      <span className="text-xs text-gray-400 font-arabic">
-                        {new Date(item.createdAt).toLocaleDateString(
-                          isAr ? "ar-EG" : "en-US",
-                          {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          },
-                        )}
-                      </span>
-                    </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 

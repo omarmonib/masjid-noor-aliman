@@ -205,16 +205,16 @@ export default function AdminDashboard({ locale }: { locale: string }) {
                         labelEn: "Mosque Page",
                       },
                       {
-                        href: "/ar/sermons",
-                        icon: "📻",
-                        labelAr: "صفحة التسجيلات",
-                        labelEn: "Sermons Page",
+                        href: "/ar/admin/news",
+                        icon: "📰",
+                        labelAr: "إدارة الأخبار والإعلانات",
+                        labelEn: "Manage News",
                       },
                       {
-                        href: "/ar",
-                        icon: "🏠",
-                        labelAr: "الصفحة الرئيسية",
-                        labelEn: "Home Page",
+                        href: "/ar/admin/events",
+                        icon: "📅",
+                        labelAr: "إدارة الفعاليات",
+                        labelEn: "Manage Events",
                       },
                     ].map((link) => (
                       <a

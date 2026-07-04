@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import AboutSection from "./AboutSection";
+import NewsSection from "./NewsSection";
+import EventsSection from "./EventsSection";
 
 interface Props {
   locale: string;
@@ -19,23 +21,8 @@ export default function MosquePage({ locale }: Props) {
     { id: "events", labelAr: "الفعاليات", labelEn: "Events", icon: "📅" },
   ];
 
-  const UnderMaintenance = () => (
-    <div className="text-center py-20">
-      <div className="text-6xl mb-6">🔧</div>
-      <h2 className="font-arabic text-2xl font-bold text-gray-700 mb-3">
-        {isAr ? "سيتم إضافة التفاصيل قريباً" : "Details will be added soon"}
-      </h2>
-      <p className="font-arabic text-gray-400 text-base">
-        {isAr
-          ? "نعمل على تحديث هذا القسم. تابعونا للمزيد."
-          : "We are working on updating this section. Stay tuned."}
-      </p>
-    </div>
-  );
-
   return (
     <main className="min-h-screen bg-surface">
-      {/* Header */}
       <div className="bg-gradient-to-br from-[#0D3D28] to-[#1B6B4A] py-12 px-4 text-center text-white">
         <div className="text-5xl mb-4">🕌</div>
         <h1 className="font-arabic text-4xl font-bold mb-2">
@@ -48,7 +35,6 @@ export default function MosquePage({ locale }: Props) {
         </p>
       </div>
 
-      {/* Tabs */}
       <div className="bg-white border-b border-gray-100 sticky top-16 z-30 shadow-sm">
         <div className="max-w-3xl mx-auto flex">
           {tabs.map((tab) => (
@@ -68,11 +54,10 @@ export default function MosquePage({ locale }: Props) {
         </div>
       </div>
 
-      {/* Content */}
       <div className="max-w-3xl mx-auto px-4 py-10">
         {activeTab === "about" && <AboutSection locale={locale} />}
-        {activeTab === "news" && <UnderMaintenance />}
-        {activeTab === "events" && <UnderMaintenance />}
+        {activeTab === "news" && <NewsSection locale={locale} />}
+        {activeTab === "events" && <EventsSection locale={locale} />}
       </div>
     </main>
   );
