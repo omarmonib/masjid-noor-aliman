@@ -13,9 +13,11 @@ model Media {
   id          String   @id @default(cuid())
   titleAr     String
   titleEn     String?
-  type        String   // "sermon" | "recording" | "video"
-  url         String   // /uploads/media/... or an external URL
+  type        String
+  url         String
   speaker     String?
+  speakerId   String?
+  speakerRef  Speaker? @relation(fields: [speakerId], references: [id], onDelete: SetNull)
   description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -34,6 +36,16 @@ model NewsPost {
   publishedAt DateTime @default(now())
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model Speaker {
+  id        String   @id @default(cuid())
+  nameAr    String
+  nameEn    String?
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  media     Media[]
 }
 
 model MosqueEvent {

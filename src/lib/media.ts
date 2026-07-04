@@ -5,6 +5,13 @@ export interface MediaItem {
   type: "quran" | "lesson";
   url: string;
   speaker: string | null;
+  speakerId: string | null;
+  speakerRef: {
+    id: string;
+    nameAr: string;
+    nameEn: string | null;
+    order: number;
+  } | null;
   description: string | null;
   createdAt: string;
   updatedAt: string;
@@ -29,4 +36,41 @@ export function formatDuration(seconds: number) {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+/** Group media items into speaker sections, named speakers first (by order), then free-text speakers, then unspecified. */
+export function groupBySpeaker(items: MediaItem[], isAr: boolean) {
+  const groups = new Map<
+    string,
+    { key: string; label: string; order: number; items: MediaItem[] }
+  >();
+
+  for (const item of items) {
+    let key: string;
+    let label: string;
+    let order: number;
+
+    if (item.speakerRef) {
+      key = `s:${item.speakerRef.id}`;
+      label = isAr
+        ? item.speakerRef.nameAr
+        : item.speakerRef.nameEn || item.speakerRef.nameAr;
+      order = item.speakerRef.order;
+    } else if (item.speaker) {
+      key = `f:${item.speaker}`;
+      label = item.speaker;
+      order = 100000;
+    } else {
+      key = "none";
+      label = isAr ? "غير محدد" : "Unspecified";
+      order = 999999;
+    }
+
+    if (!groups.has(key)) groups.set(key, { key, label, order, items: [] });
+    groups.get(key)!.items.push(item);
+  }
+
+  return Array.from(groups.values()).sort(
+    (a, b) => a.order - b.order || a.label.localeCompare(b.label),
+  );
 }

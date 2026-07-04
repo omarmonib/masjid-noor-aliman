@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
   const media = await prisma.media.findMany({
     where: type ? { type } : undefined,
     orderBy: { createdAt: "desc" },
+    include: { speakerRef: true },
   });
 
   return NextResponse.json(media);
@@ -30,7 +31,8 @@ export async function POST(req: NextRequest) {
     const titleAr = (formData.get("titleAr") as string)?.trim();
     const titleEn = (formData.get("titleEn") as string)?.trim() || null;
     const type = formData.get("type") as string;
-    const speaker = (formData.get("speaker") as string)?.trim() || null;
+    const speakerId = (formData.get("speakerId") as string)?.trim() || null;
+    const speakerFreeText = (formData.get("speaker") as string)?.trim() || null;
     const description = (formData.get("description") as string)?.trim() || null;
     const externalUrl = (formData.get("externalUrl") as string)?.trim() || null;
     const file = formData.get("file") as File | null;
@@ -56,7 +58,6 @@ export async function POST(req: NextRequest) {
           { status: 400 },
         );
       }
-      // 100MB safety cap
       if (file.size > 100 * 1024 * 1024) {
         return NextResponse.json({ error: "File too large" }, { status: 413 });
       }
@@ -78,7 +79,17 @@ export async function POST(req: NextRequest) {
 
     const { prisma } = await import("@/lib/prisma");
     const media = await prisma.media.create({
-      data: { titleAr, titleEn, type, url, speaker, description },
+      data: {
+        titleAr,
+        titleEn,
+        type,
+        url,
+        speakerId: speakerId || null,
+        // Only store free-text speaker name when no linked speaker was chosen
+        speaker: speakerId ? null : speakerFreeText,
+        description,
+      },
+      include: { speakerRef: true },
     });
 
     return NextResponse.json(media, { status: 201 });

@@ -24,8 +24,6 @@ export async function DELETE(
   const media = await prisma.media.findUnique({ where: { id } });
   if (!media) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // Only delete from Blob storage if it's a blob URL we manage
-  // (external URLs entered manually shouldn't be deleted from our storage)
   if (media.url.includes(".public.blob.vercel-storage.com")) {
     try {
       await del(media.url);
@@ -48,12 +46,19 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await req.json();
-  const { titleAr, titleEn, speaker, description } = body;
+  const { titleAr, titleEn, speaker, speakerId, description } = body;
 
   const { prisma } = await import("@/lib/prisma");
   const media = await prisma.media.update({
     where: { id },
-    data: { titleAr, titleEn, speaker, description },
+    data: {
+      titleAr,
+      titleEn,
+      description,
+      speakerId: speakerId || null,
+      speaker: speakerId ? null : speaker || null,
+    },
+    include: { speakerRef: true },
   });
 
   return NextResponse.json(media);

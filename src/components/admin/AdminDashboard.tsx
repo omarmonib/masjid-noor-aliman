@@ -199,6 +199,12 @@ export default function AdminDashboard({ locale }: { locale: string }) {
                         labelEn: "Manage Sermons",
                       },
                       {
+                        href: "/ar/admin/speakers",
+                        icon: "🎤",
+                        labelAr: "إدارة القراء والخطباء",
+                        labelEn: "Manage Speakers",
+                      },
+                      {
                         href: "/ar/admin/news",
                         icon: "📰",
                         labelAr: "إدارة الأخبار والإعلانات",

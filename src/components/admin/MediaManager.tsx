@@ -1,18 +1,22 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { MEDIA_TYPES, type MediaItem } from "@/lib/media";
+import type { Speaker } from "@/lib/speakers";
 
 export default function MediaManager({ locale }: { locale: string }) {
   const isAr = locale === "ar";
   const [items, setItems] = useState<MediaItem[]>([]);
+  const [speakers, setSpeakers] = useState<Speaker[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("all");
 
   const [titleAr, setTitleAr] = useState("");
   const [titleEn, setTitleEn] = useState("");
   const [type, setType] = useState<string>("lesson");
-  const [speaker, setSpeaker] = useState("");
+  const [speakerId, setSpeakerId] = useState<string>("");
+  const [speakerFreeText, setSpeakerFreeText] = useState("");
   const [description, setDescription] = useState("");
   const [externalUrl, setExternalUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -22,9 +26,14 @@ export default function MediaManager({ locale }: { locale: string }) {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/media");
-    const data = await res.json();
-    setItems(Array.isArray(data) ? data : []);
+    const [mediaRes, speakersRes] = await Promise.all([
+      fetch("/api/media"),
+      fetch("/api/speakers"),
+    ]);
+    const mediaData = await mediaRes.json();
+    const speakersData = await speakersRes.json();
+    setItems(Array.isArray(mediaData) ? mediaData : []);
+    setSpeakers(Array.isArray(speakersData) ? speakersData : []);
     setLoading(false);
   }, []);
 
@@ -35,7 +44,8 @@ export default function MediaManager({ locale }: { locale: string }) {
   const resetForm = () => {
     setTitleAr("");
     setTitleEn("");
-    setSpeaker("");
+    setSpeakerId("");
+    setSpeakerFreeText("");
     setDescription("");
     setExternalUrl("");
     setFile(null);
@@ -65,7 +75,11 @@ export default function MediaManager({ locale }: { locale: string }) {
     formData.append("titleAr", titleAr.trim());
     if (titleEn.trim()) formData.append("titleEn", titleEn.trim());
     formData.append("type", type);
-    if (speaker.trim()) formData.append("speaker", speaker.trim());
+    if (speakerId) {
+      formData.append("speakerId", speakerId);
+    } else if (speakerFreeText.trim()) {
+      formData.append("speaker", speakerFreeText.trim());
+    }
     if (description.trim()) formData.append("description", description.trim());
     if (file) formData.append("file", file);
     if (externalUrl.trim()) formData.append("externalUrl", externalUrl.trim());
@@ -94,13 +108,24 @@ export default function MediaManager({ locale }: { locale: string }) {
   const filtered =
     filter === "all" ? items : items.filter((i) => i.type === filter);
 
+  const speakerLabel = (item: MediaItem) =>
+    item.speakerRef ? (isAr ? item.speakerRef.nameAr : item.speakerRef.nameEn || item.speakerRef.nameAr) : item.speaker;
+
   return (
     <div className="space-y-6" dir={isAr ? "rtl" : "ltr"}>
       {/* Upload form */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-        <h2 className="font-arabic text-lg font-bold text-gray-800 mb-4">
-          {isAr ? "إضافة تسجيل صوتي جديد" : "Add New Audio"}
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-arabic text-lg font-bold text-gray-800">
+            {isAr ? "إضافة تسجيل صوتي جديد" : "Add New Audio"}
+          </h2>
+          <Link
+            href={`/${locale}/admin/speakers`}
+            className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:border-primary/40 hover:text-primary transition-colors font-arabic"
+          >
+            {isAr ? "إدارة القراء ←" : "Manage Speakers ←"}
+          </Link>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -149,15 +174,30 @@ export default function MediaManager({ locale }: { locale: string }) {
             </div>
             <div>
               <label className="block font-arabic text-sm text-gray-600 mb-1">
-                {isAr ? "اسم القارئ / الخطيب" : "Reciter / Speaker"}
+                {isAr ? "القارئ / الخطيب" : "Speaker"}
               </label>
-              <input
-                type="text"
-                value={speaker}
-                onChange={(e) => setSpeaker(e.target.value)}
+              <select
+                value={speakerId}
+                onChange={(e) => setSpeakerId(e.target.value)}
                 className="w-full border border-gray-200 rounded-xl px-4 py-2.5 font-arabic text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                dir="rtl"
-              />
+              >
+                <option value="">{isAr ? "— بدون / كتابة اسم حر —" : "— None / free text —"}</option>
+                {speakers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {isAr ? s.nameAr : s.nameEn || s.nameAr}
+                  </option>
+                ))}
+              </select>
+              {!speakerId && (
+                <input
+                  type="text"
+                  value={speakerFreeText}
+                  onChange={(e) => setSpeakerFreeText(e.target.value)}
+                  placeholder={isAr ? "أو اكتب اسماً مباشرة" : "or type a name directly"}
+                  className="w-full mt-2 border border-gray-200 rounded-xl px-4 py-2.5 font-arabic text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  dir="rtl"
+                />
+              )}
             </div>
           </div>
 
@@ -286,10 +326,10 @@ export default function MediaManager({ locale }: { locale: string }) {
                       </p>
                       <div className="flex items-center gap-2 text-xs text-gray-400 font-arabic mt-0.5">
                         <span>{isAr ? meta?.labelAr : meta?.labelEn}</span>
-                        {item.speaker && (
+                        {speakerLabel(item) && (
                           <>
                             <span>·</span>
-                            <span>{item.speaker}</span>
+                            <span>{speakerLabel(item)}</span>
                           </>
                         )}
                         <span>·</span>
@@ -302,6 +342,7 @@ export default function MediaManager({ locale }: { locale: string }) {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
+                    
                     <a
                       href={item.url}
                       target="_blank"
