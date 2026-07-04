@@ -190,7 +190,7 @@ export default function AdminDashboard({ locale }: { locale: string }) {
                   <h2 className="font-arabic text-lg font-bold text-gray-800 mb-4">
                     {isAr ? "روابط سريعة" : "Quick Links"}
                   </h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {[
                       {
                         href: "/ar/admin/media",
