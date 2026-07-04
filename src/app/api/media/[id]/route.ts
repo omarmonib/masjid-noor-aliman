@@ -1,8 +1,8 @@
+// src/app/api/media/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { unlink } from "fs/promises";
-import path from "path";
+import { del } from "@vercel/blob";
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -24,11 +24,13 @@ export async function DELETE(
   const media = await prisma.media.findUnique({ where: { id } });
   if (!media) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  if (media.url.startsWith("/uploads/")) {
+  // Only delete from Blob storage if it's a blob URL we manage
+  // (external URLs entered manually shouldn't be deleted from our storage)
+  if (media.url.includes(".public.blob.vercel-storage.com")) {
     try {
-      await unlink(path.join(process.cwd(), "public", media.url));
+      await del(media.url);
     } catch {
-      // file may already be gone — ignore
+      // blob may already be gone — ignore
     }
   }
 

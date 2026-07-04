@@ -1,7 +1,8 @@
+// src/app/api/media/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { mkdir, writeFile } from "fs/promises";
+import { put } from "@vercel/blob";
 import path from "path";
 import { randomUUID } from "crypto";
 
@@ -59,13 +60,13 @@ export async function POST(req: NextRequest) {
       if (file.size > 100 * 1024 * 1024) {
         return NextResponse.json({ error: "File too large" }, { status: 413 });
       }
-      const bytes = await file.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-      const filename = `${randomUUID()}${ext}`;
-      const uploadDir = path.join(process.cwd(), "public", "uploads", "media");
-      await mkdir(uploadDir, { recursive: true });
-      await writeFile(path.join(uploadDir, filename), buffer);
-      url = `/uploads/media/${filename}`;
+
+      const filename = `media/${randomUUID()}${ext}`;
+      const blob = await put(filename, file, {
+        access: "public",
+        contentType: file.type || undefined,
+      });
+      url = blob.url;
     } else if (externalUrl) {
       url = externalUrl;
     } else {
