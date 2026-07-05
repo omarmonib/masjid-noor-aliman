@@ -12,6 +12,9 @@ export default function SpeakersManager({ locale }: { locale: string }) {
   const [nameAr, setNameAr] = useState("");
   const [nameEn, setNameEn] = useState("");
   const [order, setOrder] = useState("0");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [existingPhotoUrl, setExistingPhotoUrl] = useState<string | null>(null);
+  const [removePhoto, setRemovePhoto] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -32,6 +35,9 @@ export default function SpeakersManager({ locale }: { locale: string }) {
     setNameAr("");
     setNameEn("");
     setOrder("0");
+    setPhotoFile(null);
+    setExistingPhotoUrl(null);
+    setRemovePhoto(false);
     setEditingId(null);
   };
 
@@ -40,6 +46,9 @@ export default function SpeakersManager({ locale }: { locale: string }) {
     setNameAr(s.nameAr);
     setNameEn(s.nameEn || "");
     setOrder(String(s.order));
+    setExistingPhotoUrl(s.photoUrl);
+    setPhotoFile(null);
+    setRemovePhoto(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -54,18 +63,18 @@ export default function SpeakersManager({ locale }: { locale: string }) {
     }
 
     setSubmitting(true);
-    const payload = {
-      nameAr: nameAr.trim(),
-      nameEn: nameEn.trim(),
-      order: Number(order) || 0,
-    };
+    const formData = new FormData();
+    formData.append("nameAr", nameAr.trim());
+    formData.append("nameEn", nameEn.trim());
+    formData.append("order", String(Number(order) || 0));
+    if (photoFile) formData.append("photo", photoFile);
+    if (removePhoto) formData.append("removePhoto", "1");
 
     const res = await fetch(
       editingId ? `/api/speakers/${editingId}` : "/api/speakers",
       {
         method: editingId ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: formData,
       },
     );
     const data = await res.json();
@@ -102,6 +111,10 @@ export default function SpeakersManager({ locale }: { locale: string }) {
     if (res.ok) setSpeakers((prev) => prev.filter((s) => s.id !== id));
   };
 
+  const previewUrl = photoFile
+    ? URL.createObjectURL(photoFile)
+    : existingPhotoUrl;
+
   return (
     <div className="space-y-6" dir={isAr ? "rtl" : "ltr"}>
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
@@ -116,6 +129,46 @@ export default function SpeakersManager({ locale }: { locale: string }) {
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Photo */}
+          <div className="flex items-center gap-4">
+            <div className="w-20 h-20 rounded-2xl bg-gray-100 border border-gray-200 overflow-hidden flex items-center justify-center flex-shrink-0">
+              {previewUrl && !removePhoto ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={previewUrl}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-3xl">🎙️</span>
+              )}
+            </div>
+            <div className="flex-1 space-y-2">
+              <label className="block font-arabic text-sm text-gray-600">
+                {isAr ? "صورة القارئ" : "Speaker Photo"}
+              </label>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(e) => {
+                  setPhotoFile(e.target.files?.[0] || null);
+                  setRemovePhoto(false);
+                }}
+                className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2"
+              />
+              {existingPhotoUrl && !photoFile && (
+                <label className="flex items-center gap-2 text-xs text-red-500 font-arabic">
+                  <input
+                    type="checkbox"
+                    checked={removePhoto}
+                    onChange={(e) => setRemovePhoto(e.target.checked)}
+                  />
+                  {isAr ? "إزالة الصورة الحالية" : "Remove current photo"}
+                </label>
+              )}
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block font-arabic text-sm text-gray-600 mb-1">
@@ -224,16 +277,33 @@ export default function SpeakersManager({ locale }: { locale: string }) {
                 key={s.id}
                 className="flex items-center justify-between gap-4 px-6 py-4"
               >
-                <div className="min-w-0 flex-1">
-                  <p className="font-arabic font-bold text-gray-800" dir="rtl">
-                    {s.nameAr}
-                  </p>
-                  {s.nameEn && (
-                    <p className="text-xs text-gray-400">{s.nameEn}</p>
-                  )}
-                  <p className="text-xs text-gray-300 font-arabic mt-0.5">
-                    {isAr ? "الترتيب" : "Order"}: {s.order}
-                  </p>
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="w-12 h-12 rounded-xl bg-gray-100 overflow-hidden flex items-center justify-center flex-shrink-0">
+                    {s.photoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={s.photoUrl}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-xl">🎙️</span>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p
+                      className="font-arabic font-bold text-gray-800"
+                      dir="rtl"
+                    >
+                      {s.nameAr}
+                    </p>
+                    {s.nameEn && (
+                      <p className="text-xs text-gray-400">{s.nameEn}</p>
+                    )}
+                    <p className="text-xs text-gray-300 font-arabic mt-0.5">
+                      {isAr ? "الترتيب" : "Order"}: {s.order}
+                    </p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button

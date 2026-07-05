@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { put, del } from "@vercel/blob";
+import path from "path";
+import { randomUUID } from "crypto";
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -17,20 +20,70 @@ export async function PATCH(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const body = await req.json();
-  const { nameAr, nameEn, order } = body;
 
-  const { prisma } = await import("@/lib/prisma");
-  const speaker = await prisma.speaker.update({
-    where: { id },
-    data: {
-      nameAr,
-      nameEn: nameEn || null,
-      order: Number.isFinite(order) ? order : 0,
-    },
-  });
+  try {
+    const formData = await req.formData();
+    const nameAr = (formData.get("nameAr") as string)?.trim();
+    const nameEn = (formData.get("nameEn") as string)?.trim() || null;
+    const orderRaw = formData.get("order");
+    const order = orderRaw ? Number(orderRaw) : 0;
+    const file = formData.get("photo") as File | null;
+    const removePhoto = formData.get("removePhoto") === "1";
 
-  return NextResponse.json(speaker);
+    const { prisma } = await import("@/lib/prisma");
+    const existing = await prisma.speaker.findUnique({ where: { id } });
+    if (!existing)
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    let photoUrl = existing.photoUrl;
+
+    if (file && file.size > 0) {
+      const allowedExt = [".jpg", ".jpeg", ".png", ".webp"];
+      const ext = path.extname(file.name).toLowerCase() || ".jpg";
+      if (!allowedExt.includes(ext)) {
+        return NextResponse.json(
+          { error: "Only image files are allowed (jpg, png, webp)" },
+          { status: 400 },
+        );
+      }
+      const blob = await put(`speakers/${randomUUID()}${ext}`, file, {
+        access: "public",
+        contentType: file.type || undefined,
+      });
+      if (existing.photoUrl?.includes(".public.blob.vercel-storage.com")) {
+        try {
+          await del(existing.photoUrl);
+        } catch {
+          // ignore
+        }
+      }
+      photoUrl = blob.url;
+    } else if (removePhoto) {
+      if (existing.photoUrl?.includes(".public.blob.vercel-storage.com")) {
+        try {
+          await del(existing.photoUrl);
+        } catch {
+          // ignore
+        }
+      }
+      photoUrl = null;
+    }
+
+    const speaker = await prisma.speaker.update({
+      where: { id },
+      data: {
+        nameAr,
+        nameEn,
+        order: Number.isFinite(order) ? order : 0,
+        photoUrl,
+      },
+    });
+
+    return NextResponse.json(speaker);
+  } catch (e) {
+    console.error("Speaker update error:", e);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  }
 }
 
 export async function DELETE(
@@ -44,7 +97,15 @@ export async function DELETE(
   const { id } = await params;
   const { prisma } = await import("@/lib/prisma");
 
-  // Detach media from this speaker before deleting (keeps the recordings, just unlinks the section)
+  const existing = await prisma.speaker.findUnique({ where: { id } });
+  if (existing?.photoUrl?.includes(".public.blob.vercel-storage.com")) {
+    try {
+      await del(existing.photoUrl);
+    } catch {
+      // ignore
+    }
+  }
+
   await prisma.media.updateMany({
     where: { speakerId: id },
     data: { speakerId: null },

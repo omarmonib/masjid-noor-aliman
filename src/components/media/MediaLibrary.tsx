@@ -1,19 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import {
-  Volume2,
-  Volume1,
-  VolumeX,
-  RotateCcw,
-  RotateCw,
-  ChevronDown,
-} from "lucide-react";
+import { Volume2, Volume1, VolumeX, RotateCcw, RotateCw } from "lucide-react";
 import {
   MEDIA_TYPES,
   formatDuration,
   groupBySpeaker,
   type MediaItem,
+  type SpeakerGroup,
 } from "@/lib/media";
 
 const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2];
@@ -23,7 +17,7 @@ export default function MediaLibrary({ locale }: { locale: string }) {
   const [items, setItems] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [section, setSection] = useState<string>("lesson");
-  const [openSections, setOpenSections] = useState<Set<string>>(new Set());
+  const [activeGroupKey, setActiveGroupKey] = useState<string | null>(null);
 
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -51,26 +45,9 @@ export default function MediaLibrary({ locale }: { locale: string }) {
   const filtered = items.filter((i) => i.type === section);
   const groups = groupBySpeaker(filtered, isAr);
   const activeMeta = MEDIA_TYPES.find((t) => t.id === section);
-
-  // Open the first section by default whenever the groups change
-  useEffect(() => {
-    if (groups.length > 0) {
-      setOpenSections((prev) => {
-        if (prev.size > 0) return prev;
-        return new Set([groups[0].key]);
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groups.length, section]);
-
-  const toggleSection = (key: string) => {
-    setOpenSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
+  const activeGroup: SpeakerGroup | undefined = groups.find(
+    (g) => g.key === activeGroupKey,
+  );
 
   const playItem = (item: MediaItem) => {
     if (playingId === item.id) {
@@ -154,6 +131,9 @@ export default function MediaLibrary({ locale }: { locale: string }) {
   };
 
   const VolumeIcon = volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
+
+  const openGroup = (key: string) => setActiveGroupKey(key);
+  const closeGroup = () => setActiveGroupKey(null);
 
   const renderItem = (item: MediaItem) => {
     const active = playingId === item.id;
@@ -325,7 +305,7 @@ export default function MediaLibrary({ locale }: { locale: string }) {
               key={t.id}
               onClick={() => {
                 setSection(t.id);
-                setOpenSections(new Set());
+                setActiveGroupKey(null);
               }}
               className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-arabic text-sm font-bold transition-all ${
                 section === t.id
@@ -347,7 +327,7 @@ export default function MediaLibrary({ locale }: { locale: string }) {
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
+      <div className="max-w-3xl mx-auto px-4 py-8">
         {loading && (
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
@@ -370,40 +350,40 @@ export default function MediaLibrary({ locale }: { locale: string }) {
           </div>
         )}
 
-        {!loading &&
-          groups.map((group) => {
-            const isOpen = openSections.has(group.key);
-            return (
-              <div key={group.key} className="space-y-3">
-                <button
-                  onClick={() => toggleSection(group.key)}
-                  className="w-full flex items-center justify-between gap-3 bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4 hover:border-primary/30 transition-all"
+        {/* Speaker profile squares */}
+        {!loading && groups.length > 0 && (
+          <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
+            {groups.map((group) => (
+              <button
+                key={group.key}
+                onClick={() => openGroup(group.key)}
+                className="group flex flex-col items-center gap-2 bg-white rounded-2xl p-3 shadow-sm border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all"
+              >
+                <div className="relative w-full aspect-square rounded-xl overflow-hidden bg-primary/10 flex items-center justify-center">
+                  {group.photoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={group.photoUrl}
+                      alt={group.label}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-3xl sm:text-4xl">🎙️</span>
+                  )}
+                  <span className="absolute top-1 right-1 min-w-[20px] h-5 px-1 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center">
+                    {group.items.length}
+                  </span>
+                </div>
+                <span
+                  className="font-arabic text-xs sm:text-sm font-bold text-gray-800 text-center leading-snug line-clamp-2"
+                  dir="rtl"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm flex-shrink-0">
-                      {group.items.length}
-                    </div>
-                    <span
-                      className="font-arabic font-bold text-gray-800 text-base sm:text-lg"
-                      dir="rtl"
-                    >
-                      {group.label}
-                    </span>
-                  </div>
-                  <ChevronDown
-                    size={20}
-                    className={`text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
-                  />
-                </button>
-
-                {isOpen && (
-                  <div className="space-y-3 pl-1 pr-1">
-                    {group.items.map(renderItem)}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                  {group.label}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <p className="text-center font-arabic text-xs text-gray-400 pb-10">
@@ -411,6 +391,49 @@ export default function MediaLibrary({ locale }: { locale: string }) {
           ? "جميع التسجيلات الخاصة بمسجد نور الإيمان"
           : "All recordings are audio-only and free"}
       </p>
+
+      {/* Speaker modal */}
+      {activeGroup && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex flex-col">
+          <div
+            className="flex items-center justify-between px-5 py-4 text-white"
+            style={{
+              background: "linear-gradient(to right, #0D3D28, #1B6B4A)",
+            }}
+          >
+            <button
+              onClick={closeGroup}
+              className="text-white/80 hover:text-white text-2xl w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors"
+            >
+              ✕
+            </button>
+            <div className="text-center">
+              <p className="font-arabic text-lg font-bold">
+                {activeGroup.label}
+              </p>
+              <p className="text-white/60 text-xs font-arabic">
+                {activeGroup.items.length} {isAr ? "تسجيل" : "recordings"}
+              </p>
+            </div>
+            <div className="w-10 h-10 rounded-full overflow-hidden bg-white/10 flex items-center justify-center flex-shrink-0">
+              {activeGroup.photoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={activeGroup.photoUrl}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-lg">🎙️</span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto bg-surface px-4 py-6 space-y-4">
+            {activeGroup.items.map(renderItem)}
+          </div>
+        </div>
+      )}
     </main>
   );
 }

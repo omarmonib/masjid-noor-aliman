@@ -11,6 +11,7 @@ export interface MediaItem {
     nameAr: string;
     nameEn: string | null;
     order: number;
+    photoUrl: string | null;
   } | null;
   description: string | null;
   createdAt: string;
@@ -38,17 +39,26 @@ export function formatDuration(seconds: number) {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+export interface SpeakerGroup {
+  key: string;
+  label: string;
+  order: number;
+  photoUrl: string | null;
+  items: MediaItem[];
+}
+
 /** Group media items into speaker sections, named speakers first (by order), then free-text speakers, then unspecified. */
-export function groupBySpeaker(items: MediaItem[], isAr: boolean) {
-  const groups = new Map<
-    string,
-    { key: string; label: string; order: number; items: MediaItem[] }
-  >();
+export function groupBySpeaker(
+  items: MediaItem[],
+  isAr: boolean,
+): SpeakerGroup[] {
+  const groups = new Map<string, SpeakerGroup>();
 
   for (const item of items) {
     let key: string;
     let label: string;
     let order: number;
+    let photoUrl: string | null = null;
 
     if (item.speakerRef) {
       key = `s:${item.speakerRef.id}`;
@@ -56,6 +66,7 @@ export function groupBySpeaker(items: MediaItem[], isAr: boolean) {
         ? item.speakerRef.nameAr
         : item.speakerRef.nameEn || item.speakerRef.nameAr;
       order = item.speakerRef.order;
+      photoUrl = item.speakerRef.photoUrl;
     } else if (item.speaker) {
       key = `f:${item.speaker}`;
       label = item.speaker;
@@ -66,7 +77,8 @@ export function groupBySpeaker(items: MediaItem[], isAr: boolean) {
       order = 999999;
     }
 
-    if (!groups.has(key)) groups.set(key, { key, label, order, items: [] });
+    if (!groups.has(key))
+      groups.set(key, { key, label, order, photoUrl, items: [] });
     groups.get(key)!.items.push(item);
   }
 

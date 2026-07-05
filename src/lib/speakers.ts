@@ -3,4 +3,5 @@ export interface Speaker {
   nameAr: string;
   nameEn: string | null;
   order: number;
+  photoUrl: string | null;
 }
