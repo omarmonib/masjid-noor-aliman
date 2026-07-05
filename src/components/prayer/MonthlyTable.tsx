@@ -173,7 +173,10 @@ export default function MonthlyTable({ locale }: { locale: string }) {
                       </div>
                     </td>
                     {/* Hijri */}
-                    <td className="px-2 py-3 text-center font-arabic text-xs text-gray-400 whitespace-nowrap">
+                    <td
+                      className="px-2 py-3 text-center font-arabic text-xs text-gray-400 whitespace-nowrap"
+                      suppressHydrationWarning
+                    >
                       {row.hijri}
                     </td>
                     {/* Prayer times — bigger font */}

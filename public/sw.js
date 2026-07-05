@@ -37,20 +37,39 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   if (url.pathname.startsWith("/api/")) return;
 
+  // Range requests (audio/video seeking) always get a 206 back, and the
+  // Cache API refuses to store partial responses. Just pass these straight
+  // through the network without ever touching the cache.
+  if (event.request.headers.has("range")) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        const clone = response.clone();
-        caches
-          .open(CACHE_NAME)
-          .then((cache) => cache.put(event.request, clone));
+        // Only cache full, successful, basic (same-origin) responses.
+        // Opaque cross-origin responses and any non-200 (including 206
+        // partial content) must never be passed to cache.put().
+        if (
+          response.ok &&
+          response.status === 200 &&
+          response.type === "basic"
+        ) {
+          const clone = response.clone();
+          caches
+            .open(CACHE_NAME)
+            .then((cache) => cache.put(event.request, clone))
+            .catch(() => {
+              // Ignore cache write failures — the response is still
+              // returned to the page either way.
+            });
+        }
         return response;
       })
       .catch(() => caches.match(event.request)),
   );
 });
-
-// ── Push notifications (prayer times) ──────────────────────────
 
 // ── Push notifications (prayer times) ──────────────────────────
 
@@ -74,9 +93,7 @@ self.addEventListener("push", (event) => {
     dir: "rtl",
     lang: "ar",
     // Distinct pulse pattern for the Adhan moment vs. the 10-min heads-up / iqamah
-    vibrate: isAdhan
-      ? [300, 100, 300, 100, 300, 100, 300]
-      : [200, 100, 200],
+    vibrate: isAdhan ? [300, 100, 300, 100, 300, 100, 300] : [200, 100, 200],
     // Adhan notification stays on screen until the user dismisses it —
     // heads-up/iqamah ones can auto-dismiss as usual
     requireInteraction: isAdhan,

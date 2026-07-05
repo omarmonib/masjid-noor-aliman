@@ -126,10 +126,16 @@ export default function DailyPrayers({ locale }: { locale: string }) {
     <div className="space-y-6">
       {/* Dates */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center space-y-1">
-        <p className="font-arabic text-gray-800 font-medium">
+        <p
+          className="font-arabic text-gray-800 font-medium"
+          suppressHydrationWarning
+        >
           {formatGregorian(now, locale)}
         </p>
-        <p className="font-arabic text-primary text-sm">
+        <p
+          className="font-arabic text-primary text-sm"
+          suppressHydrationWarning
+        >
           {formatHijri(now, locale)}
         </p>
       </div>
