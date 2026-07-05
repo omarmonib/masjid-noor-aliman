@@ -9,6 +9,17 @@ export function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return outputArray;
 }
 
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  fallback: T,
+): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
+}
+
 export async function subscribeToPush(): Promise<boolean> {
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
     return false;
@@ -73,7 +84,21 @@ export async function getPushSubscriptionStatus(): Promise<PushStatus> {
   }
   if (Notification.permission === "denied") return "denied";
 
-  const registration = await navigator.serviceWorker.ready;
-  const subscription = await registration.pushManager.getSubscription();
-  return subscription ? "subscribed" : "unsubscribed";
+  try {
+    // If the service worker never activates/controls the page (stuck
+    // registration, stale cache, 404 on sw.js, etc.), `ready` can hang
+    // forever with no error. Cap the wait so the UI never gets stuck.
+    const registration = await withTimeout(
+      navigator.serviceWorker.ready,
+      4000,
+      null,
+    );
+    if (!registration) return "unsubscribed";
+
+    const subscription = await registration.pushManager.getSubscription();
+    return subscription ? "subscribed" : "unsubscribed";
+  } catch (e) {
+    console.error("getPushSubscriptionStatus error:", e);
+    return "unsubscribed";
+  }
 }

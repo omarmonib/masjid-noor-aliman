@@ -7,7 +7,6 @@ import type { Metadata, Viewport } from "next";
 import NotificationPrompt from "@/components/notifications/NotificationPrompt";
 import AdhanPlayer from "@/components/notifications/AdhanPlayer";
 
-
 const cairo = Cairo({ subsets: ["arabic", "latin"], variable: "--font-cairo" });
 const amiri = Amiri({
   subsets: ["arabic"],
@@ -15,7 +14,6 @@ const amiri = Amiri({
   variable: "--font-amiri",
 });
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-
 
 export const viewport: Viewport = {
   themeColor: "#1B6B4A",
@@ -82,13 +80,7 @@ export default async function LocaleLayout({
         </NextIntlClientProvider>
         <script
           dangerouslySetInnerHTML={{
-            __html: `
-              if ('serviceWorker' in navigator) {
-                window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/sw.js');
-                });
-              }
-            `,
+            __html: `if ('serviceWorker' in navigator) {window.addEventListener('load', function() {navigator.serviceWorker.register('/sw.js').catch(function(err) {console.error('SW registration failed:', err);});});}`,
           }}
         />
       </body>
