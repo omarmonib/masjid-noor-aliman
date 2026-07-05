@@ -145,7 +145,7 @@ export default function SpeakersManager({ locale }: { locale: string }) {
             </div>
             <div className="flex-1 space-y-2">
               <label className="block font-arabic text-sm text-gray-600">
-                {isAr ? "صورة القارئ" : "Speaker Photo"}
+                {isAr ? "صورة الشيخ" : "Speaker Photo"}
               </label>
               <input
                 type="file"
