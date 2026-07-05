@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
+import NotificationBell from "@/components/notifications/NotificationBell";
 
 export default function Navbar({ locale }: { locale: string }) {
   const isAr = locale === "ar";
@@ -67,6 +68,8 @@ export default function Navbar({ locale }: { locale: string }) {
 
         {/* Auth button */}
         <div className="hidden md:flex items-center gap-2">
+          <NotificationBell locale={locale} />
+
           {session?.user?.role === "ADMIN" && (
             <Link
               href={`/${locale}/admin`}
@@ -133,6 +136,15 @@ export default function Navbar({ locale }: { locale: string }) {
               </Link>
             );
           })}
+
+          {/* Notifications toggle */}
+          <div className="flex items-center justify-between px-4 py-2.5 rounded-xl">
+            <span className="font-arabic text-sm text-gray-600">
+              {isAr ? "تنبيهات الصلاة" : "Prayer Notifications"}
+            </span>
+            <NotificationBell locale={locale} />
+          </div>
+
           <div className="pt-2 border-t border-gray-100">
             {session ? (
               <button

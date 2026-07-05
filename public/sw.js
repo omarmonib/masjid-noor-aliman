@@ -1,3 +1,5 @@
+// public/sw.js
+
 const CACHE_NAME = "masjid-noor-v1";
 const STATIC_ASSETS = [
   "/ar",
@@ -45,5 +47,46 @@ self.addEventListener("fetch", (event) => {
         return response;
       })
       .catch(() => caches.match(event.request)),
+  );
+});
+
+// ── Push notifications (prayer times) ──────────────────────────
+
+self.addEventListener("push", (event) => {
+  if (!event.data) return;
+
+  let payload;
+  try {
+    payload = event.data.json();
+  } catch {
+    payload = { title: "مسجد نور الإيمان", body: event.data.text() };
+  }
+
+  const options = {
+    body: payload.body || "",
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
+    tag: payload.tag,
+    dir: "rtl",
+    lang: "ar",
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(
+      payload.title || "مسجد نور الإيمان",
+      options,
+    ),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: "window" }).then((clientList) => {
+      for (const client of clientList) {
+        if ("focus" in client) return client.focus();
+      }
+      if (self.clients.openWindow) return self.clients.openWindow("/");
+    }),
   );
 });

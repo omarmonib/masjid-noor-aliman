@@ -4,6 +4,7 @@ import { Cairo, Amiri, Inter } from "next/font/google";
 import Navbar from "@/components/layout/Navbar";
 import SessionWrapper from "@/components/auth/SessionWrapper";
 import type { Metadata } from "next";
+import NotificationPrompt from "@/components/notifications/NotificationPrompt";
 
 const cairo = Cairo({ subsets: ["arabic", "latin"], variable: "--font-cairo" });
 const amiri = Amiri({
@@ -67,6 +68,7 @@ export default async function LocaleLayout({
         <NextIntlClientProvider messages={messages}>
           <SessionWrapper>
             <Navbar locale={locale} />
+            <NotificationPrompt locale={locale} />
             {children}
           </SessionWrapper>
         </NextIntlClientProvider>
