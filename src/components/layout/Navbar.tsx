@@ -68,8 +68,12 @@ export default function Navbar({ locale }: { locale: string }) {
 
         {/* Auth button */}
         <div className="hidden md:flex items-center gap-2">
-          <NotificationBell locale={locale} />
-
+          <div className="flex items-center gap-1.5">
+            <span className="font-arabic text-xs text-gray-500 hidden lg:inline">
+              {isAr ? "الأذان" : "Adhan"}
+            </span>
+            <NotificationBell locale={locale} />
+          </div>
           {session?.user?.role === "ADMIN" && (
             <Link
               href={`/${locale}/admin`}
@@ -140,7 +144,7 @@ export default function Navbar({ locale }: { locale: string }) {
           {/* Notifications toggle */}
           <div className="flex items-center justify-between px-4 py-2.5 rounded-xl">
             <span className="font-arabic text-sm text-gray-600">
-              {isAr ? "تنبيهات الصلاة" : "Prayer Notifications"}
+              {isAr ? "الأذان" : "Adhan"}
             </span>
             <NotificationBell locale={locale} />
           </div>
