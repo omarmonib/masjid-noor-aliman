@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Volume2, Volume1, VolumeX, RotateCcw, RotateCw } from "lucide-react";
 import {
   MEDIA_TYPES,
@@ -14,9 +15,18 @@ const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
 export default function MediaLibrary({ locale }: { locale: string }) {
   const isAr = locale === "ar";
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [items, setItems] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [section, setSection] = useState<string>("lesson");
+
+  const validSection = (v: string | null) =>
+    v === "quran" || v === "lesson" ? v : null;
+
+  const [section, setSection] = useState<string>(
+    () => validSection(searchParams.get("section")) || "lesson",
+  );
   const [activeGroupKey, setActiveGroupKey] = useState<string | null>(null);
 
   const [playingId, setPlayingId] = useState<string | null>(null);
@@ -41,6 +51,14 @@ export default function MediaLibrary({ locale }: { locale: string }) {
       audioRef.current?.pause();
     };
   }, []);
+
+  const changeSection = (id: string) => {
+    setSection(id);
+    setActiveGroupKey(null);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("section", id);
+    router.replace(`?${params.toString()}`, { scroll: false });
+  };
 
   const filtered = items.filter((i) => i.type === section);
   const groups = groupBySpeaker(filtered, isAr);
@@ -303,10 +321,7 @@ export default function MediaLibrary({ locale }: { locale: string }) {
           {MEDIA_TYPES.map((t) => (
             <button
               key={t.id}
-              onClick={() => {
-                setSection(t.id);
-                setActiveGroupKey(null);
-              }}
+              onClick={() => changeSection(t.id)}
               className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-arabic text-sm font-bold transition-all ${
                 section === t.id
                   ? "text-white shadow-sm"
