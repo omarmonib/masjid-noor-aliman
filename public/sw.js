@@ -52,6 +52,8 @@ self.addEventListener("fetch", (event) => {
 
 // ── Push notifications (prayer times) ──────────────────────────
 
+// ── Push notifications (prayer times) ──────────────────────────
+
 self.addEventListener("push", (event) => {
   if (!event.data) return;
 
@@ -62,13 +64,23 @@ self.addEventListener("push", (event) => {
     payload = { title: "مسجد نور الإيمان", body: event.data.text() };
   }
 
+  const isAdhan = payload.tag?.endsWith("-adhan");
+
   const options = {
     body: payload.body || "",
-    icon: "/icons/icon-192.png",
-    badge: "/icons/icon-192.png",
+    icon: "/icons/icon-192x192.png",
+    badge: "/icons/icon-192x192.png",
     tag: payload.tag,
     dir: "rtl",
     lang: "ar",
+    // Distinct pulse pattern for the Adhan moment vs. the 10-min heads-up / iqamah
+    vibrate: isAdhan
+      ? [300, 100, 300, 100, 300, 100, 300]
+      : [200, 100, 200],
+    // Adhan notification stays on screen until the user dismisses it —
+    // heads-up/iqamah ones can auto-dismiss as usual
+    requireInteraction: isAdhan,
+    renotify: true, // makes the vibration/alert re-trigger even if tag repeats
   };
 
   event.waitUntil(

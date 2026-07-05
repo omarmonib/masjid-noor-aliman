@@ -19,6 +19,16 @@ function ensureConfigured() {
 export interface PushPayload {
   title: string;
   body: string;
+  /**
+   * Event tag, e.g. "fajr-headsup" | "fajr-adhan" | "fajr-iqamah".
+   * The service worker (public/sw.js) inspects this string:
+   *   - tags ending in "-adhan" get a stronger vibration pattern and
+   *     requireInteraction: true, since it's the most important alert.
+   *   - all other tags (headsup / iqamah / sunrise) get a lighter pulse
+   *     and auto-dismiss normally.
+   * Keep this suffix convention ("-adhan") in sync with prayer-schedule.ts
+   * if event keys/tags are ever renamed.
+   */
   tag?: string;
 }
 

@@ -5,6 +5,8 @@ import Navbar from "@/components/layout/Navbar";
 import SessionWrapper from "@/components/auth/SessionWrapper";
 import type { Metadata, Viewport } from "next";
 import NotificationPrompt from "@/components/notifications/NotificationPrompt";
+import AdhanPlayer from "@/components/notifications/AdhanPlayer";
+
 
 const cairo = Cairo({ subsets: ["arabic", "latin"], variable: "--font-cairo" });
 const amiri = Amiri({
@@ -31,7 +33,7 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕌</text></svg>",
-    apple: "/icons/icon-192.png",
+    apple: "/icons/icon-192x192.png",
   },
 };
 
@@ -74,6 +76,7 @@ export default async function LocaleLayout({
           <SessionWrapper>
             <Navbar locale={locale} />
             <NotificationPrompt locale={locale} />
+            <AdhanPlayer locale={locale} />
             {children}
           </SessionWrapper>
         </NextIntlClientProvider>
