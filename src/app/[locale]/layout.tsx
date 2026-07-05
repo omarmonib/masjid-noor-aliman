@@ -3,7 +3,7 @@ import { getMessages, setRequestLocale } from "next-intl/server";
 import { Cairo, Amiri, Inter } from "next/font/google";
 import Navbar from "@/components/layout/Navbar";
 import SessionWrapper from "@/components/auth/SessionWrapper";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import NotificationPrompt from "@/components/notifications/NotificationPrompt";
 
 const cairo = Cairo({ subsets: ["arabic", "latin"], variable: "--font-cairo" });
@@ -13,6 +13,11 @@ const amiri = Amiri({
   variable: "--font-amiri",
 });
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+
+
+export const viewport: Viewport = {
+  themeColor: "#1B6B4A",
+};
 
 export const metadata: Metadata = {
   title: "مسجد نور الإيمان",

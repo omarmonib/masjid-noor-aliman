@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import MediaLibrary from "@/components/media/MediaLibrary";
 
 export default async function SermonsPage({
@@ -6,5 +7,9 @@ export default async function SermonsPage({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  return <MediaLibrary locale={locale} />;
+  return (
+    <Suspense fallback={null}>
+      <MediaLibrary locale={locale} />
+    </Suspense>
+  );
 }
