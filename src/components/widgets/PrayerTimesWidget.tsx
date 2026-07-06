@@ -16,12 +16,31 @@ const PRAYERS = [
   { key: "isha", labelAr: "العشاء", labelEn: "Isha", icon: "🌃" },
 ] as const;
 
+const ARABIC_DIGITS = ["٠", "١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩"];
+
+function toArabicDigits(s: string) {
+  return s.replace(/[0-9]/g, (d) => ARABIC_DIGITS[Number(d)]);
+}
+
+// Manual 12-hour formatter — deliberately avoids toLocaleTimeString/Intl.
+// Using date.getHours()/getMinutes() (local time) and building the string
+// by hand guarantees identical output on the server and in every browser,
+// with no dependency on ICU version, so there's no risk of a mismatched
+// AM/PM marker or hour value between environments.
 function fmt(date: Date, locale: string) {
-  return date.toLocaleTimeString(locale === "ar" ? "ar-EG" : "en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+  const isAr = locale === "ar";
+
+  let h12 = hours % 12;
+  if (h12 === 0) h12 = 12;
+
+  const hh = String(h12).padStart(2, "0");
+  const mm = String(minutes).padStart(2, "0");
+  const period = hours >= 12 ? (isAr ? "م" : "PM") : isAr ? "ص" : "AM";
+
+  const digits = isAr ? toArabicDigits(`${hh}:${mm}`) : `${hh}:${mm}`;
+  return `${digits} ${period}`;
 }
 
 function getNextInfo() {
@@ -57,11 +76,6 @@ export function PrayerTimesWidget({ locale, compact = false }: Props) {
   const now = new Date();
   const pt = new PrayerTimes(COORDS, now, PARAMS);
 
-  // Compute once and freeze in state — same pattern as DailyPrayers.tsx —
-  // so re-renders don't recompute/reformat these strings. This does NOT
-  // fully prevent server/client Intl formatting differences (that's what
-  // suppressHydrationWarning below is for), but it stops the values from
-  // drifting further after mount.
   const [times] = useState({
     fajr: fmt(pt.fajr, locale),
     sunrise: fmt(pt.sunrise, locale),
@@ -123,7 +137,6 @@ export function PrayerTimesWidget({ locale, compact = false }: Props) {
               >
                 <span
                   className={`font-mono text-sm ${isNext ? "text-[#C9A84C] font-bold" : "text-white/70"}`}
-                  suppressHydrationWarning
                 >
                   {times[key as keyof typeof times]}
                 </span>
@@ -193,7 +206,6 @@ export function PrayerTimesWidget({ locale, compact = false }: Props) {
               </p>
               <p
                 className={`font-mono text-xs font-bold ${isNext ? "text-[#C9A84C]" : "text-primary"}`}
-                suppressHydrationWarning
               >
                 {times[key as keyof typeof times]}
               </p>
