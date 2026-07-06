@@ -96,3 +96,30 @@ export function getTodayNotificationEvents(): NotificationEvent[] {
 
   return events;
 }
+
+export function getNotificationEventsForOffset(
+  dayOffset: number,
+): NotificationEvent[] {
+  const base = getCairoToday();
+  const target = new Date(base);
+  target.setUTCDate(target.getUTCDate() + dayOffset);
+
+  const pt = new PrayerTimes(COORDS, target, PARAMS);
+  const dateKey = target.toISOString().slice(0, 10);
+
+  const prayers: { key: string; time: Date }[] = [
+    { key: "fajr", time: pt.fajr },
+    { key: "dhuhr", time: pt.dhuhr },
+    { key: "asr", time: pt.asr },
+    { key: "maghrib", time: pt.maghrib },
+    { key: "isha", time: pt.isha },
+  ];
+
+  return prayers.map(({ key, time }) => ({
+    key: `${dateKey}:${key}:adhan`,
+    time,
+    title: `حان الآن وقت صلاة ${PRAYER_LABELS_AR[key]}`,
+    body: "حي على الصلاة، حي على الفلاح",
+    tag: `${key}-adhan`,
+  }));
+}
