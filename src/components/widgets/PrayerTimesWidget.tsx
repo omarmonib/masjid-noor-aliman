@@ -57,14 +57,19 @@ export function PrayerTimesWidget({ locale, compact = false }: Props) {
   const now = new Date();
   const pt = new PrayerTimes(COORDS, now, PARAMS);
 
-  const times = {
+  // Compute once and freeze in state — same pattern as DailyPrayers.tsx —
+  // so re-renders don't recompute/reformat these strings. This does NOT
+  // fully prevent server/client Intl formatting differences (that's what
+  // suppressHydrationWarning below is for), but it stops the values from
+  // drifting further after mount.
+  const [times] = useState({
     fajr: fmt(pt.fajr, locale),
     sunrise: fmt(pt.sunrise, locale),
     dhuhr: fmt(pt.dhuhr, locale),
     asr: fmt(pt.asr, locale),
     maghrib: fmt(pt.maghrib, locale),
     isha: fmt(pt.isha, locale),
-  };
+  });
 
   const initial = getNextInfo();
   const [nextPrayer, setNextPrayer] = useState(initial.name);
@@ -118,6 +123,7 @@ export function PrayerTimesWidget({ locale, compact = false }: Props) {
               >
                 <span
                   className={`font-mono text-sm ${isNext ? "text-[#C9A84C] font-bold" : "text-white/70"}`}
+                  suppressHydrationWarning
                 >
                   {times[key as keyof typeof times]}
                 </span>
@@ -187,6 +193,7 @@ export function PrayerTimesWidget({ locale, compact = false }: Props) {
               </p>
               <p
                 className={`font-mono text-xs font-bold ${isNext ? "text-[#C9A84C]" : "text-primary"}`}
+                suppressHydrationWarning
               >
                 {times[key as keyof typeof times]}
               </p>
