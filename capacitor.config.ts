@@ -2,11 +2,11 @@ import type { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
   appId: "com.masjidnooraliman.app",
-  appName: "مسجد نور الإيمان",
+  appName: "نور الإيمان",
   webDir: "capacitor-www",
   server: {
     // Replace with your real production domain
-    url: "https://YOUR-DOMAIN.vercel.app",
+    url: "https://masjid-noor-aliman.vercel.app",
     cleartext: false,
   },
   plugins: {
