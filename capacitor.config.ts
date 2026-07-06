@@ -15,6 +15,9 @@ const config: CapacitorConfig = {
       iconColor: "#1B6B4A",
       sound: "adhan_short.wav",
     },
+    StatusBar: {
+      overlaysWebView: false,
+    },
   },
 };
 
