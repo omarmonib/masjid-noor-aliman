@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">مسجد نور الإيمان</string>
-    <string name="title_activity_main">مسجد نور الإيمان</string>
+    <string name="app_name">نور اللإيمان</string>
+    <string name="title_activity_main">نور اللإيمان</string>
     <string name="package_name">com.masjidnooraliman.app</string>
     <string name="custom_url_scheme">com.masjidnooraliman.app</string>
 </resources>
