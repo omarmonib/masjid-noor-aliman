@@ -22,11 +22,8 @@ function toArabicDigits(s: string) {
   return s.replace(/[0-9]/g, (d) => ARABIC_DIGITS[Number(d)]);
 }
 
-// Manual 12-hour formatter — deliberately avoids toLocaleTimeString/Intl.
-// Using date.getHours()/getMinutes() (local time) and building the string
-// by hand guarantees identical output on the server and in every browser,
-// with no dependency on ICU version, so there's no risk of a mismatched
-// AM/PM marker or hour value between environments.
+// Manual 12-hour formatter — avoids toLocaleTimeString/Intl entirely so the
+// output is byte-identical on server and client regardless of ICU version.
 function fmt(date: Date, locale: string) {
   const hours = date.getHours();
   const minutes = date.getMinutes();
@@ -76,6 +73,8 @@ export function PrayerTimesWidget({ locale, compact = false }: Props) {
   const now = new Date();
   const pt = new PrayerTimes(COORDS, now, PARAMS);
 
+  // Static for the day — safe to compute during the shared render, since
+  // it only depends on the calendar date, not the current second.
   const [times] = useState({
     fajr: fmt(pt.fajr, locale),
     sunrise: fmt(pt.sunrise, locale),
@@ -85,16 +84,23 @@ export function PrayerTimesWidget({ locale, compact = false }: Props) {
     isha: fmt(pt.isha, locale),
   });
 
-  const initial = getNextInfo();
-  const [nextPrayer, setNextPrayer] = useState(initial.name);
-  const [countdown, setCountdown] = useState(initial.countdown);
+  // "Next prayer" and the countdown depend on the exact current second, so
+  // computing them during the initial render risks a different result on
+  // the server (render time) vs. the client (hydration time) — a real
+  // hydration mismatch, not a formatting quirk. Start both null on every
+  // render (server AND client's first pass), then fill them in only after
+  // mount, so the first paint is always identical on both sides.
+  const [nextPrayer, setNextPrayer] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState<string | null>(null);
 
   useEffect(() => {
-    const interval = setInterval(() => {
+    const update = () => {
       const { name, countdown } = getNextInfo();
       setNextPrayer(name);
       setCountdown(countdown);
-    }, 1000);
+    };
+    update();
+    const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -112,11 +118,8 @@ export function PrayerTimesWidget({ locale, compact = false }: Props) {
             <p className="font-arabic text-lg font-bold">
               {nextLabel ? (isAr ? nextLabel.labelAr : nextLabel.labelEn) : "—"}
             </p>
-            <p
-              className="font-mono text-xl font-bold text-[#C9A84C]"
-              suppressHydrationWarning
-            >
-              {countdown}
+            <p className="font-mono text-xl font-bold text-[#C9A84C]">
+              {countdown ?? "--:--:--"}
             </p>
           </div>
         </div>
@@ -178,11 +181,8 @@ export function PrayerTimesWidget({ locale, compact = false }: Props) {
         <p className="font-arabic text-lg font-bold text-primary mb-1">
           {nextLabel ? (isAr ? nextLabel.labelAr : nextLabel.labelEn) : "—"}
         </p>
-        <p
-          className="font-mono text-2xl font-bold text-[#C9A84C] tracking-wider"
-          suppressHydrationWarning
-        >
-          {countdown}
+        <p className="font-mono text-2xl font-bold text-[#C9A84C] tracking-wider">
+          {countdown ?? "--:--:--"}
         </p>
       </div>
 
