@@ -2,11 +2,12 @@
 
 import { useEffect } from "react";
 import { App } from "@capacitor/app";
+import { StatusBar, Style } from "@capacitor/status-bar";
 import {
   isNativeApp,
+  isNativeAdhanEnabled,
   scheduleNativeAdhanNotifications,
 } from "@/lib/capacitor-adhan";
-import { StatusBar, Style } from "@capacitor/status-bar";
 
 export default function NativeAdhanScheduler() {
   useEffect(() => {
@@ -18,12 +19,16 @@ export default function NativeAdhanScheduler() {
     StatusBar.setBackgroundColor({ color: "#1B6B4A" }).catch(() => {});
     StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
 
-    scheduleNativeAdhanNotifications();
+    if (isNativeAdhanEnabled()) {
+      scheduleNativeAdhanNotifications();
+    }
 
     const sub = App.addListener("appStateChange", ({ isActive }) => {
       if (isActive) {
         StatusBar.setBackgroundColor({ color: "#1B6B4A" }).catch(() => {});
-        scheduleNativeAdhanNotifications();
+        if (isNativeAdhanEnabled()) {
+          scheduleNativeAdhanNotifications();
+        }
       }
     });
 

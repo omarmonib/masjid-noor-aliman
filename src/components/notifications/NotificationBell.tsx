@@ -7,21 +7,40 @@ import {
   unsubscribeFromPush,
   getPushSubscriptionStatus,
 } from "./push-client";
+import {
+  isNativeApp,
+  isNativeAdhanEnabled,
+  toggleNativeAdhan,
+} from "@/lib/capacitor-adhan";
 
 export default function NotificationBell({ locale }: { locale: string }) {
   const isAr = locale === "ar";
+  const native = isNativeApp();
+
   const [status, setStatus] = useState<
     "loading" | "unsupported" | "denied" | "subscribed" | "unsubscribed"
   >("loading");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    getPushSubscriptionStatus().then(setStatus);
-  }, []);
+    if (native) {
+      setStatus(isNativeAdhanEnabled() ? "subscribed" : "unsubscribed");
+    } else {
+      getPushSubscriptionStatus().then(setStatus);
+    }
+  }, [native]);
 
   const handleClick = async () => {
     if (busy) return;
     setBusy(true);
+
+    if (native) {
+      const next = status !== "subscribed";
+      await toggleNativeAdhan(next, isAr);
+      setStatus(next ? "subscribed" : "unsubscribed");
+      setBusy(false);
+      return;
+    }
 
     if (status === "subscribed") {
       await unsubscribeFromPush();
@@ -40,7 +59,10 @@ export default function NotificationBell({ locale }: { locale: string }) {
     setBusy(false);
   };
 
-  if (status === "loading" || status === "unsupported") return null;
+  // Only the web-push path can legitimately be "unsupported"; the native
+  // path always resolves to subscribed/unsubscribed synchronously.
+  if (status === "loading") return null;
+  if (!native && status === "unsupported") return null;
 
   const Icon =
     status === "subscribed" ? BellRing : status === "denied" ? BellOff : Bell;
@@ -52,11 +74,11 @@ export default function NotificationBell({ locale }: { locale: string }) {
       title={
         status === "subscribed"
           ? isAr
-            ? "إيقاف تنبيهات الصلاة"
-            : "Disable prayer notifications"
+            ? "تنبيه الصلاة مفعّل — اضغط للإيقاف"
+            : "Prayer Alert On — tap to turn off"
           : isAr
-            ? "تفعيل تنبيهات الصلاة"
-            : "Enable prayer notifications"
+            ? "تنبيه الصلاة متوقف — اضغط للتفعيل"
+            : "Alert Off — tap to enable"
       }
       className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors disabled:opacity-50 ${
         status === "subscribed"

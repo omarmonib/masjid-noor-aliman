@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { getTodayNotificationEvents } from "@/lib/prayer-schedule";
+import { isNativeApp } from "@/lib/capacitor-adhan";
 
 const ENABLED_KEY = "adhan-audio-enabled";
 
@@ -12,12 +13,19 @@ export default function AdhanPlayer({ locale }: { locale: string }) {
   const timeoutsRef = useRef<number[]>([]);
   const [enabled, setEnabled] = useState<boolean | null>(null);
 
-  useEffect(() => {
-    setEnabled(localStorage.getItem(ENABLED_KEY) === "1");
-  }, []);
+  // On native, NativeAdhanScheduler + capacitor-adhan.ts own both the
+  // toggle and the actual sound (via a real OS notification that also
+  // fires in the background). Running this in-page timer/audio path too
+  // would just double the sound while the app happens to be open.
+  const native = isNativeApp();
 
   useEffect(() => {
-    if (!enabled) return;
+    if (native) return;
+    setEnabled(localStorage.getItem(ENABLED_KEY) === "1");
+  }, [native]);
+
+  useEffect(() => {
+    if (native || !enabled) return;
 
     audioRef.current = new Audio("/audio/adhan.mp3");
     audioRef.current.preload = "auto";
@@ -50,7 +58,7 @@ export default function AdhanPlayer({ locale }: { locale: string }) {
       timeoutsRef.current.forEach(clearTimeout);
       clearInterval(midnightCheck);
     };
-  }, [enabled]);
+  }, [enabled, native]);
 
   const enable = () => {
     // Unlock audio autoplay with a real user gesture
@@ -64,7 +72,7 @@ export default function AdhanPlayer({ locale }: { locale: string }) {
     setEnabled(true);
   };
 
-  if (enabled !== false) return null;
+  if (native || enabled !== false) return null;
 
   return (
     <div

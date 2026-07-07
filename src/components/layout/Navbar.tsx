@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import NotificationBell from "@/components/notifications/NotificationBell";
+import AdhanSettingsButton from "@/components/notifications/AdhanSettingsButton";
 
 export default function Navbar({ locale }: { locale: string }) {
   const isAr = locale === "ar";
@@ -73,6 +74,7 @@ export default function Navbar({ locale }: { locale: string }) {
               {isAr ? "الأذان" : "Adhan"}
             </span>
             <NotificationBell locale={locale} />
+            <AdhanSettingsButton locale={locale} />
           </div>
           {session?.user?.role === "ADMIN" && (
             <Link
@@ -146,7 +148,10 @@ export default function Navbar({ locale }: { locale: string }) {
             <span className="font-arabic text-sm text-gray-600">
               {isAr ? "الأذان" : "Adhan"}
             </span>
-            <NotificationBell locale={locale} />
+            <div className="flex items-center gap-1.5">
+              <NotificationBell locale={locale} />
+              <AdhanSettingsButton locale={locale} />
+            </div>
           </div>
 
           <div className="pt-2 border-t border-gray-100">
