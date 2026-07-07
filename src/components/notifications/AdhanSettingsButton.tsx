@@ -10,7 +10,10 @@ import {
   type AdhanVoiceId,
 } from "@/lib/capacitor-adhan";
 
-const PREVIEW_BASE = "/audio/adhan";
+// Preview clips are hosted on archive.org (not bundled in the repo/APK) —
+// only the native notification sound needs a physical file on-device.
+// Replace {identifier} with your actual archive.org item identifier.
+const PREVIEW_BASE = "https://archive.org/download/masjid-noor-aliman-adhan";
 
 type PreviewKey = `${AdhanVoiceId}:regular` | `${AdhanVoiceId}:fajr`;
 
@@ -21,14 +24,14 @@ export default function AdhanSettingsButton({ locale }: { locale: string }) {
   const [playing, setPlaying] = useState<PreviewKey | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Voice choice only matters on native — web push has no custom sound.
-  if (!isNativeApp()) return null;
-
   useEffect(() => {
     return () => {
       audioRef.current?.pause();
     };
   }, []);
+
+  // Voice choice only matters on native — web push has no custom sound.
+  if (!isNativeApp()) return null;
 
   const choose = (id: AdhanVoiceId) => {
     setSelected(id);

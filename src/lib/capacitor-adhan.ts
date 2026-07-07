@@ -16,22 +16,22 @@ export const ADHAN_VOICES = [
     id: "nabawi",
     labelAr: "الشيخ عادل كاتب — المسجد النبوي",
     labelEn: "Sheikh Adel Kateb — Masjid An-Nabawi",
-    file: "adhan_nabawi.wav",
-    fajrFile: "adhan_nabawi_fajr.wav",
+    file: "adhan_nabawi.mp3",
+    fajrFile: "adhan_nabawi_fajr.mp3",
   },
   {
     id: "masri",
     labelAr: "الشيخ عبد الباسط عبد الصمد — مصر",
     labelEn: "Sheikh Abdul Basit Abdul Samad — Egypt",
-    file: "adhan_masri.wav",
-    fajrFile: "adhan_masri_fajr.wav",
+    file: "adhan_masri.mp3",
+    fajrFile: "adhan_masri_fajr.mp3",
   },
   {
     id: "makkah",
     labelAr: "الشيخ علي ملا — الحرم المكي",
     labelEn: "Sheikh Ali Mulla — Masjid Al-Haram",
-    file: "adhan_makkah.wav",
-    fajrFile: "adhan_makkah_fajr.wav",
+    file: "adhan_makkah.mp3",
+    fajrFile: "adhan_makkah_fajr.mp3",
   },
 ] as const;
 
