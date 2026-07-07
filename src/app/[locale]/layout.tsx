@@ -1,6 +1,8 @@
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, setRequestLocale } from "next-intl/server";
 import { Cairo, Amiri, Inter } from "next/font/google";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import Navbar from "@/components/layout/Navbar";
 import SessionWrapper from "@/components/auth/SessionWrapper";
 import type { Metadata, Viewport } from "next";
@@ -50,6 +52,7 @@ export default async function LocaleLayout({
   const { locale } = await params;
   setRequestLocale(locale);
   const messages = await getMessages();
+  const session = await getServerSession(authOptions);
 
   return (
     <html
@@ -72,7 +75,7 @@ export default async function LocaleLayout({
         style={{ fontFamily: "var(--font-cairo), sans-serif" }}
       >
         <NextIntlClientProvider messages={messages}>
-          <SessionWrapper>
+          <SessionWrapper session={session}>
             <Navbar locale={locale} />
             <NotificationPrompt locale={locale} />
             <AdhanPlayer locale={locale} />
