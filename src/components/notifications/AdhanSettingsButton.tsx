@@ -58,7 +58,14 @@ export default function AdhanSettingsButton({ locale }: { locale: string }) {
     const filename = variant === "fajr" ? voice.fajrFile : voice.file;
     const audio = new Audio(`${PREVIEW_BASE}/${filename}`);
     audio.onended = () => setPlaying(null);
-    audio.onerror = () => setPlaying(null);
+    audio.onerror = () => {
+      setPlaying(null);
+      alert(
+        isAr
+          ? "تعذّر تشغيل المعاينة — تحقق من الرابط"
+          : "Preview failed to load — check the URL",
+      );
+    };
     audioRef.current = audio;
     audio.play().catch(() => setPlaying(null));
     setPlaying(key);
