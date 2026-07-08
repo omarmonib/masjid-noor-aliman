@@ -13,7 +13,7 @@ import {
 // Preview clips are hosted on archive.org (not bundled in the repo/APK) —
 // only the native notification sound needs a physical file on-device.
 // Replace {identifier} with your actual archive.org item identifier.
-const PREVIEW_BASE = "https://archive.org/download/masjid-noor-aliman-adhan";
+const PREVIEW_BASE = "https://archive.org/download/adhan_202607";
 
 type PreviewKey = `${AdhanVoiceId}:regular` | `${AdhanVoiceId}:fajr`;
 

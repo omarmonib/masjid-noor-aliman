@@ -59,8 +59,6 @@ export default function NotificationBell({ locale }: { locale: string }) {
     setBusy(false);
   };
 
-  // Only the web-push path can legitimately be "unsupported"; the native
-  // path always resolves to subscribed/unsubscribed synchronously.
   if (status === "loading") return null;
   if (!native && status === "unsupported") return null;
 
@@ -80,13 +78,18 @@ export default function NotificationBell({ locale }: { locale: string }) {
             ? "تنبيه الصلاة متوقف — اضغط للتفعيل"
             : "Alert Off — tap to enable"
       }
-      className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors disabled:opacity-50 ${
+      className={`flex items-center gap-1.5 px-2 h-9 rounded-full transition-colors disabled:opacity-50 ${
         status === "subscribed"
           ? "bg-primary/10 text-primary"
           : "text-gray-500 hover:bg-gray-50 hover:text-primary"
       }`}
     >
       <Icon size={18} />
+      {status === "subscribed" && (
+        <span className="font-arabic text-xs font-bold whitespace-nowrap">
+          {isAr ? "مفعّل" : "Activated"}
+        </span>
+      )}
     </button>
   );
 }
