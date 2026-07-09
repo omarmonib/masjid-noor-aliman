@@ -97,9 +97,7 @@ export default function Navbar({ locale }: { locale: string }) {
                 className="flex items-center gap-1.5 pl-2 pr-1 py-1.5 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors"
               >
                 <span className="w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">
-                  {(session.user?.name ||
-                    session.user?.email ||
-                    "?")[0].toUpperCase()}
+                  {(session.user?.name || session.user?.email || "?")[0].toUpperCase()}
                 </span>
                 <ChevronDown size={14} />
               </button>
