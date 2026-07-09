@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
+import { ChevronDown } from "lucide-react";
 import NotificationBell from "@/components/notifications/NotificationBell";
 import AdhanSettingsButton from "@/components/notifications/AdhanSettingsButton";
 
@@ -11,6 +12,8 @@ export default function Navbar({ locale }: { locale: string }) {
   const isAr = locale === "ar";
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const accountRef = useRef<HTMLDivElement | null>(null);
   const { data: session } = useSession();
 
   const navLinks = [
@@ -30,24 +33,35 @@ export default function Navbar({ locale }: { locale: string }) {
 
   const isAdmin = session?.user?.role === "ADMIN";
 
+  useEffect(() => {
+    const onClickOutside = (e: MouseEvent) => {
+      if (
+        accountRef.current &&
+        !accountRef.current.contains(e.target as Node)
+      ) {
+        setAccountOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
   return (
     <nav className="bg-white border-b border-gray-100 sticky top-0 z-50 shadow-sm">
       <div
-        className="max-w-6xl mx-auto px-4 flex items-center justify-between h-16"
+        className="max-w-6xl mx-auto px-4 flex items-center justify-between h-14"
         dir={isAr ? "rtl" : "ltr"}
       >
-        {/* Logo */}
-        <Link href={`/${locale}`} className="flex flex-col">
-          <span className="font-arabic text-lg font-bold text-gray-800 leading-tight">
+        {/* Logo — single line on desktop */}
+        <Link href={`/${locale}`} className="flex items-center gap-2">
+          <span className="text-lg">🕌</span>
+          <span className="font-arabic text-base font-bold text-gray-800 whitespace-nowrap">
             {isAr ? "مسجد نور الإيمان" : "Masjid Noor Al-Iman"}
-          </span>
-          <span className="text-xs text-primary font-arabic">
-            {isAr ? "Masjid Noor Al-Iman" : "مسجد نور الإيمان"}
           </span>
         </Link>
 
         {/* Desktop links */}
-        <div className="hidden md:flex items-center gap-1">
+        <div className="hidden md:flex items-center gap-0.5">
           {navLinks.map((link) => {
             const href = `/${locale}${link.href}`;
             const isActive =
@@ -57,7 +71,7 @@ export default function Navbar({ locale }: { locale: string }) {
               <Link
                 key={link.href}
                 href={href}
-                className={`px-3 py-2 rounded-lg font-arabic text-sm transition-colors ${
+                className={`px-2.5 py-1.5 rounded-lg font-arabic text-sm transition-colors ${
                   isActive
                     ? "bg-primary text-white"
                     : "text-gray-600 hover:bg-gray-50 hover:text-primary"
@@ -69,40 +83,57 @@ export default function Navbar({ locale }: { locale: string }) {
           })}
         </div>
 
-        {/* Auth button */}
-        <div className="hidden md:flex items-center gap-2">
-          <div className="flex items-center gap-1.5">
-            <span className="font-arabic text-xs text-gray-500 hidden lg:inline">
-              {isAr ? "الأذان" : "Adhan"}
-            </span>
-            <NotificationBell locale={locale} />
-            <AdhanSettingsButton locale={locale} />
-          </div>
-          {isAdmin && (
-            <Link
-              href={`/${locale}/admin`}
-              className="font-arabic text-sm px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-primary transition-colors"
-            >
-              {isAr ? "لوحة الإدارة" : "Admin"}
-            </Link>
-          )}
+        {/* Right side */}
+        <div className="hidden md:flex items-center gap-1.5">
+          <NotificationBell locale={locale} />
+          <AdhanSettingsButton locale={locale} />
 
           {session ? (
-            <div className="flex items-center gap-2">
-              <span className="font-arabic text-sm text-gray-600">
-                {session.user?.name || session.user?.email}
-              </span>
+            <div className="relative" ref={accountRef}>
               <button
-                onClick={() => signOut({ callbackUrl: `/${locale}` })}
-                className="font-arabic text-sm px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:border-red-300 hover:text-red-500 transition-colors"
+                onClick={() => setAccountOpen((v) => !v)}
+                className="flex items-center gap-1.5 pl-2 pr-1 py-1.5 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors"
               >
-                {isAr ? "خروج" : "Sign Out"}
+                <span className="w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">
+                  {(session.user?.name ||
+                    session.user?.email ||
+                    "?")[0].toUpperCase()}
+                </span>
+                <ChevronDown size={14} />
               </button>
+
+              {accountOpen && (
+                <div
+                  className="absolute mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50"
+                  style={{ [isAr ? "right" : "left"]: 0 }}
+                >
+                  <div className="px-3 py-2 border-b border-gray-50">
+                    <p className="font-arabic text-sm font-medium text-gray-700 truncate">
+                      {session.user?.name || session.user?.email}
+                    </p>
+                  </div>
+                  {isAdmin && (
+                    <Link
+                      href={`/${locale}/admin`}
+                      onClick={() => setAccountOpen(false)}
+                      className="block px-3 py-2 font-arabic text-sm text-gray-600 hover:bg-gray-50"
+                    >
+                      {isAr ? "لوحة الإدارة" : "Admin"}
+                    </Link>
+                  )}
+                  <button
+                    onClick={() => signOut({ callbackUrl: `/${locale}` })}
+                    className="w-full text-right px-3 py-2 font-arabic text-sm text-red-500 hover:bg-red-50"
+                  >
+                    {isAr ? "تسجيل الخروج" : "Sign Out"}
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <Link
               href={`/${locale}/auth/login`}
-              className="font-arabic text-sm px-4 py-2 rounded-lg text-white transition-colors"
+              className="font-arabic text-sm px-3 py-1.5 rounded-lg text-white transition-colors"
               style={{
                 background: "linear-gradient(to right, #0D3D28, #1B6B4A)",
               }}
@@ -145,7 +176,6 @@ export default function Navbar({ locale }: { locale: string }) {
             );
           })}
 
-          {/* Admin panel link — was previously desktop-only */}
           {isAdmin && (
             <Link
               href={`/${locale}/admin`}
@@ -160,7 +190,6 @@ export default function Navbar({ locale }: { locale: string }) {
             </Link>
           )}
 
-          {/* Notifications toggle */}
           <div className="flex items-center justify-between px-4 py-2.5 rounded-xl">
             <span className="font-arabic text-sm text-gray-600">
               {isAr ? "الأذان" : "Adhan"}
