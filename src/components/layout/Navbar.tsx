@@ -28,6 +28,8 @@ export default function Navbar({ locale }: { locale: string }) {
     { href: "/mosque", labelAr: "المسجد", labelEn: "Mosque" },
   ];
 
+  const isAdmin = session?.user?.role === "ADMIN";
+
   return (
     <nav className="bg-white border-b border-gray-100 sticky top-0 z-50 shadow-sm">
       <div
@@ -76,7 +78,7 @@ export default function Navbar({ locale }: { locale: string }) {
             <NotificationBell locale={locale} />
             <AdhanSettingsButton locale={locale} />
           </div>
-          {session?.user?.role === "ADMIN" && (
+          {isAdmin && (
             <Link
               href={`/${locale}/admin`}
               className="font-arabic text-sm px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-primary transition-colors"
@@ -142,6 +144,21 @@ export default function Navbar({ locale }: { locale: string }) {
               </Link>
             );
           })}
+
+          {/* Admin panel link — was previously desktop-only */}
+          {isAdmin && (
+            <Link
+              href={`/${locale}/admin`}
+              onClick={() => setMenuOpen(false)}
+              className={`block px-4 py-2.5 rounded-xl font-arabic text-sm transition-colors ${
+                pathname === `/${locale}/admin`
+                  ? "bg-primary text-white"
+                  : "text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              {isAr ? "لوحة الإدارة" : "Admin"}
+            </Link>
+          )}
 
           {/* Notifications toggle */}
           <div className="flex items-center justify-between px-4 py-2.5 rounded-xl">
