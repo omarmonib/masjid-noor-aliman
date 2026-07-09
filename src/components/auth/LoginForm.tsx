@@ -4,6 +4,8 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { isNativeApp } from "@/lib/capacitor-adhan";
+
 
 interface Props {
   locale: string;
@@ -51,7 +53,12 @@ export default function LoginForm({ locale, callbackUrl }: Props) {
 
   const handleGoogle = async () => {
     setGoogleLoading(true);
-    await signIn("google", { callbackUrl: destination });
+    if (isNativeApp()) {
+      const nativeCallback = `${window.location.origin}/api/auth/native-complete?dest=${encodeURIComponent(destination)}`;
+      await signIn("google", { callbackUrl: nativeCallback });
+    } else {
+      await signIn("google", { callbackUrl: destination });
+    }
   };
 
   return (
