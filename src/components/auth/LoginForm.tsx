@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -53,7 +53,7 @@ export default function LoginForm({ locale, callbackUrl, native }: Props) {
     }
   };
 
-  const handleGoogle = async () => {
+  const handleGoogle = useCallback(async () => {
     // Tapped from inside the app's WebView — hand the whole flow off to a
     // real external browser tab instead of starting it here. Starting the
     // OAuth handshake in the WebView and finishing it in the browser causes
@@ -75,7 +75,17 @@ export default function LoginForm({ locale, callbackUrl, native }: Props) {
       : destination;
 
     await signIn("google", { callbackUrl: finalCallback });
-  };
+  }, [locale, destination, isNativeFlow]);
+
+  // This page was opened by the app specifically to run the Google flow
+  // (native=1) — jump straight to the Google account picker instead of
+  // making the person tap the button a second time.
+  useEffect(() => {
+    if (isNativeFlow) {
+      handleGoogle();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <main className="min-h-screen bg-surface flex items-center justify-center px-4">
