@@ -5,9 +5,11 @@ export default async function LoginPage({
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ callbackUrl?: string }>;
+  searchParams: Promise<{ callbackUrl?: string; native?: string }>;
 }) {
   const { locale } = await params;
-  const { callbackUrl } = await searchParams;
-  return <LoginForm locale={locale} callbackUrl={callbackUrl} />;
+  const { callbackUrl, native } = await searchParams;
+  return (
+    <LoginForm locale={locale} callbackUrl={callbackUrl} native={native} />
+  );
 }

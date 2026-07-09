@@ -6,19 +6,21 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { isNativeApp } from "@/lib/capacitor-adhan";
 
-
 interface Props {
   locale: string;
   callbackUrl?: string;
+  native?: string;
 }
 
-export default function LoginForm({ locale, callbackUrl }: Props) {
+export default function LoginForm({ locale, callbackUrl, native }: Props) {
   const isAr = locale === "ar";
   const router = useRouter();
 
   // Only trust internal, relative paths — never redirect off-site
   const destination =
     callbackUrl && callbackUrl.startsWith("/") ? callbackUrl : `/${locale}`;
+
+  const isNativeFlow = native === "1";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -52,13 +54,27 @@ export default function LoginForm({ locale, callbackUrl }: Props) {
   };
 
   const handleGoogle = async () => {
-    setGoogleLoading(true);
-    if (isNativeApp()) {
-      const nativeCallback = `${window.location.origin}/api/auth/native-complete?dest=${encodeURIComponent(destination)}`;
-      await signIn("google", { callbackUrl: nativeCallback });
-    } else {
-      await signIn("google", { callbackUrl: destination });
+    // Tapped from inside the app's WebView — hand the whole flow off to a
+    // real external browser tab instead of starting it here. Starting the
+    // OAuth handshake in the WebView and finishing it in the browser causes
+    // a CSRF/state cookie mismatch (they're different cookie jars), which
+    // silently fails and bounces back to this page.
+    if (isNativeApp() && !isNativeFlow) {
+      const { Browser } = await import("@capacitor/browser");
+      const url = `${window.location.origin}/${locale}/auth/login?native=1&callbackUrl=${encodeURIComponent(destination)}`;
+      await Browser.open({ url });
+      return;
     }
+
+    setGoogleLoading(true);
+
+    // Running inside the native flow's browser tab (or on a normal desktop
+    // browser) — safe to let NextAuth run start-to-finish right here.
+    const finalCallback = isNativeFlow
+      ? `${window.location.origin}/api/auth/native-complete?dest=${encodeURIComponent(destination)}`
+      : destination;
+
+    await signIn("google", { callbackUrl: finalCallback });
   };
 
   return (

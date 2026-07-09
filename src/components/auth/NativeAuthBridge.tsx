@@ -18,6 +18,9 @@ export default function NativeAuthBridge() {
           return;
         }
 
+        const { Browser } = await import("@capacitor/browser");
+        Browser.close().catch(() => {});
+
         const error = parsed.searchParams.get("error");
         if (error) {
           window.location.href = "/";
