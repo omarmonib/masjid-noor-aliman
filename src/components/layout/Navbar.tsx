@@ -84,9 +84,11 @@ export default function Navbar({ locale }: { locale: string }) {
         </div>
 
         {/* Right side */}
-        <div className="hidden md:flex items-center gap-1.5">
-          <NotificationBell locale={locale} />
-          <AdhanSettingsButton locale={locale} />
+        <div className="hidden md:flex items-center gap-2">
+          <div className="flex items-center gap-0">
+            <NotificationBell locale={locale} />
+            <AdhanSettingsButton locale={locale} />
+          </div>
 
           {session ? (
             <div className="relative" ref={accountRef}>
