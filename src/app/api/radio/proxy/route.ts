@@ -41,13 +41,27 @@ export async function GET(req: NextRequest) {
 
   try {
     const upstream = await fetch(target, {
-      headers: { "User-Agent": "Mozilla/5.0" },
-      // fetch() follows redirects by default — including any http:// hop,
-      // which is fine here since this runs server-side, not in a browser.
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        Referer: `${parsed.protocol}//${parsed.hostname}/`,
+        Accept: "*/*",
+      },
+      signal: AbortSignal.timeout(8000),
     });
 
     if (!upstream.ok || !upstream.body) {
-      return new Response("Upstream error", { status: 502 });
+      // Surface the real upstream status/reason instead of a bare 502 so we
+      // can tell "station blocked our server" apart from "station is down".
+      const bodyPreview = await upstream.text().catch(() => "");
+      console.error(
+        `Radio proxy upstream failure: ${upstream.status} ${upstream.statusText} for ${target}`,
+        bodyPreview.slice(0, 300),
+      );
+      return new Response(
+        `Upstream returned ${upstream.status} ${upstream.statusText}`,
+        { status: 502 },
+      );
     }
 
     return new Response(upstream.body, {
@@ -58,7 +72,8 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (e) {
-    console.error("Radio proxy error:", e);
-    return new Response("Proxy error", { status: 502 });
+    const message = e instanceof Error ? e.message : String(e);
+    console.error(`Radio proxy error for ${target}:`, message);
+    return new Response(`Proxy error: ${message}`, { status: 502 });
   }
 }
