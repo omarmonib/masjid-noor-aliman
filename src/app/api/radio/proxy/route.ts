@@ -24,6 +24,8 @@ function isAllowedHost(hostname: string) {
 
 export async function GET(req: NextRequest) {
   const target = req.nextUrl.searchParams.get("url");
+  const debug = req.nextUrl.searchParams.get("debug") === "1";
+
   if (!target) {
     return new Response("Missing url", { status: 400 });
   }
@@ -39,16 +41,38 @@ export async function GET(req: NextRequest) {
     return new Response("Host not allowed", { status: 403 });
   }
 
+  const fetchOptions = {
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+      Referer: `${parsed.protocol}//${parsed.hostname}/`,
+      Accept: "*/*",
+    },
+    signal: AbortSignal.timeout(8000),
+  };
+
+  // Debug mode: just report what happened, don't try to stream anything.
+  // Open this URL directly in a browser tab to see the real cause.
+  if (debug) {
+    try {
+      const upstream = await fetch(target, fetchOptions);
+      return Response.json({
+        ok: upstream.ok,
+        status: upstream.status,
+        statusText: upstream.statusText,
+        finalUrl: upstream.url,
+        contentType: upstream.headers.get("content-type"),
+      });
+    } catch (e) {
+      return Response.json({
+        ok: false,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
   try {
-    const upstream = await fetch(target, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        Referer: `${parsed.protocol}//${parsed.hostname}/`,
-        Accept: "*/*",
-      },
-      signal: AbortSignal.timeout(8000),
-    });
+    const upstream = await fetch(target, fetchOptions);
 
     if (!upstream.ok || !upstream.body) {
       // Surface the real upstream status/reason instead of a bare 502 so we
