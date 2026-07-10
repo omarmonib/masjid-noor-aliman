@@ -190,14 +190,9 @@ export default function Navbar({ locale }: { locale: string }) {
             </Link>
           )}
 
-          <div className="flex items-center justify-between px-4 py-2.5 rounded-xl">
-            <span className="font-arabic text-sm text-gray-600">
-              {isAr ? "الأذان" : "Adhan"}
-            </span>
-            <div className="flex items-center gap-1.5">
-              <NotificationBell locale={locale} />
-              <AdhanSettingsButton locale={locale} />
-            </div>
+          <div className="flex items-center justify-center gap-0 px-4 py-2">
+            <NotificationBell locale={locale} />
+            <AdhanSettingsButton locale={locale} />
           </div>
 
           <div className="pt-2 border-t border-gray-100">
