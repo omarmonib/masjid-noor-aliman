@@ -6,6 +6,7 @@ import {
   CATEGORIES,
   type RadioStation,
 } from "@/data/radio-stations";
+import MosqueRadioPlayer from "./MosqueRadioPlayer";
 
 function CategoryBadge({ category }: { category: RadioStation["category"] }) {
   const map: Record<
@@ -246,6 +247,11 @@ export default function RadioPage({ locale }: { locale: string }) {
       )}
 
       <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
+        {/* Dedicated mosque station — random recitations from 5 reciters,
+            with automatic Adhan interruption. Runs its own <audio> element,
+            independent from the station list below. */}
+        <MosqueRadioPlayer locale={locale} />
+
         {/* Category filter */}
         <div className="flex gap-2 flex-wrap">
           {CATEGORIES.map((cat) => (

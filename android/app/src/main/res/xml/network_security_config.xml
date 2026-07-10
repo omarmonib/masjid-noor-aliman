@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Some radio streams redirect through plain HTTP nodes even though the
+         entry URL is HTTPS. Android blocks cleartext traffic by default since
+         API 28, which silently kills playback in the WebView (but not in a
+         desktop browser, which has no such restriction). Whitelist only the
+         known radio-stream domains rather than allowing cleartext app-wide. -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">radio.garden</domain>
+        <domain includeSubdomains="true">quran-radio.org</domain>
+        <domain includeSubdomains="true">itworkscdn.net</domain>
+        <domain includeSubdomains="true">radioca.st</domain>
+    </domain-config>
+</network-security-config>
