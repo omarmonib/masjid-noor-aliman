@@ -119,8 +119,11 @@ export default function RadioPage({ locale }: { locale: string }) {
       setIsLoading(true);
     };
 
-    // Set src and play() in the same synchronous call stack as the tap
-    audio.src = station.streamUrl;
+    // Set src and play() in the same synchronous call stack as the tap.
+    // Routed through our own HTTPS proxy — some stations (e.g. Cairo Quran
+    // via radio.garden) redirect to a plain http:// node, which gets
+    // blocked as Mixed Content when requested directly from an https page.
+    audio.src = `/api/radio/proxy?url=${encodeURIComponent(station.streamUrl)}`;
     const playPromise = audio.play();
     if (playPromise) {
       playPromise.catch((e) => {
