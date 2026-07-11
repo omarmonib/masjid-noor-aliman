@@ -6,6 +6,6 @@ export async function GET() {
     latestVersionCode: 3,
     minVersionCode: 2,
     downloadUrl:
-      "https://masjid-noor-aliman.vercel.app/downloads/masjid-noor-aliman.apk",
+      "https://yzxmxw1es97h5xoh.public.blob.vercel-storage.com/apk/masjid-noor-aliman.apk",
   });
 }
