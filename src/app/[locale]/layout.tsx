@@ -10,7 +10,7 @@ import NotificationPrompt from "@/components/notifications/NotificationPrompt";
 import AdhanPlayer from "@/components/notifications/AdhanPlayer";
 import NativeAdhanScheduler from "@/components/notifications/NativeAdhanScheduler";
 import NativeAuthBridge from "@/components/auth/NativeAuthBridge";
-
+import UpdateGate from "@/components/notifications/UpdateGate";
 
 const cairo = Cairo({ subsets: ["arabic", "latin"], variable: "--font-cairo" });
 const amiri = Amiri({
@@ -83,6 +83,7 @@ export default async function LocaleLayout({
             <AdhanPlayer locale={locale} />
             <NativeAdhanScheduler />
             <NativeAuthBridge />
+            <UpdateGate locale={locale} />
             {children}
           </SessionWrapper>
         </NextIntlClientProvider>
