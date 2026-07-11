@@ -7,7 +7,7 @@ android {
         applicationId "com.masjidnooraliman.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
+        versionCode 2
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
@@ -18,8 +18,23 @@ android {
     }
     buildTypes {
         release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            // Debug builds don't need every ABI either — this only affects
+            // local testing installs, not what you'd ever sideload/ship.
+        }
+    }
+    splits {
+        abi {
+            enable true
+            reset()
+            // Nearly all real Android phones from the last ~8 years are arm64.
+            // armeabi-v7a covers old/budget devices; x86/x86_64 are emulator-only.
+            include 'arm64-v8a', 'armeabi-v7a'
+            universalApk false
         }
     }
 }
