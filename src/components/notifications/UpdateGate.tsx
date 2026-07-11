@@ -53,6 +53,11 @@ export default function UpdateGate({ locale }: { locale: string }) {
               ? "يتضمن التحديث تحسينات جديدة"
               : "This update includes new improvements"}
         </p>
+        <p className="font-arabic text-xs text-gray-400 mb-4 leading-relaxed">
+          {isAr
+            ? 'سيتم حفظ الملف عادةً في مجلد "التنزيلات" على هاتفك — افتح إشعار المتصفح بعد اكتمال التحميل لتثبيته.'
+            : "The file will typically save to your phone's \"Downloads\" folder — open the browser's download notification once it finishes to install it."}
+        </p>
         <button
           onClick={openDownload}
           className="inline-block px-6 py-2.5 rounded-xl text-white font-arabic font-bold"
