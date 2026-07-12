@@ -8,6 +8,6 @@ export async function GET() {
     latestVersionCode: 4,
     minVersionCode: 4,
     downloadUrl:
-      "https://yzxmxw1es97h5xoh.public.blob.vercel-storage.com/apk/masjid-noor-aliman.apk",
+      "https://yzxmxw1es97h5xoh.public.blob.vercel-storage.com/apk/app-release-signed.apk",
   });
 }
