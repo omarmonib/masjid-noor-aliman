@@ -1,13 +1,15 @@
-// upload-apk.mjs — run locally with: node upload-apk.mjs
+// upload-apk.mjs — run locally, not part of the app
 import { put } from "@vercel/blob";
-import fs from "fs";
+import { readFileSync } from "fs";
 
-const file = fs.readFileSync("./public/downloads/masjid-noor-aliman.apk");
+const file = readFileSync(
+  "./android/app/build/outputs/apk/release/app-release-signed.apk",
+);
+
 const blob = await put("apk/masjid-noor-aliman.apk", file, {
   access: "public",
   contentType: "application/vnd.android.package-archive",
-  token: process.env.BLOB_READ_WRITE_TOKEN, // from your Vercel project settings
-  addRandomSuffix: false, // keep a stable, predictable URL
+  addRandomSuffix: false, // keeps the URL stable across uploads
 });
 
-console.log("Uploaded:", blob.url);
+console.log("Uploaded to:", blob.url);
