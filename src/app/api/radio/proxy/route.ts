@@ -1,19 +1,19 @@
 import { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
-// Vercel Hobby plan caps function duration (up to 60s) — a long listening
-// session may still get disconnected and need the client to reconnect.
-// Worth watching in practice; if it's a real problem, the alternative is
-// enabling mixed content in the native WebView instead (requires a rebuild).
 export const maxDuration = 60;
 
-// Only proxy known radio-stream hosts — this must not become an open proxy.
+// TEMPORARY: "example.com" added only for diagnosing whether Vercel's
+// outbound network is broken generally, or just for radio-streaming hosts.
+// Remove this entry once the radio-proxy issue is resolved.
 const ALLOWED_HOSTS = [
   "radio.garden",
   "radiojar.com",
   "quran-radio.org",
   "itworkscdn.net",
   "radioca.st",
+  "qurango.net",
+  "example.com", // TEMP — remove after diagnosis
 ];
 
 function isAllowedHost(hostname: string) {
@@ -51,8 +51,6 @@ export async function GET(req: NextRequest) {
     signal: AbortSignal.timeout(8000),
   };
 
-  // Debug mode: just report what happened, don't try to stream anything.
-  // Open this URL directly in a browser tab to see the real cause.
   if (debug) {
     try {
       const upstream = await fetch(target, fetchOptions);
@@ -75,8 +73,6 @@ export async function GET(req: NextRequest) {
     const upstream = await fetch(target, fetchOptions);
 
     if (!upstream.ok || !upstream.body) {
-      // Surface the real upstream status/reason instead of a bare 502 so we
-      // can tell "station blocked our server" apart from "station is down".
       const bodyPreview = await upstream.text().catch(() => "");
       console.error(
         `Radio proxy upstream failure: ${upstream.status} ${upstream.statusText} for ${target}`,
