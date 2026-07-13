@@ -87,90 +87,109 @@ export default function RadioPage({ locale }: { locale: string }) {
     return res.json();
   };
 
-  const resyncMosqueLive = async () => {
-    if (!audioRef.current || currentStation?.id !== "mosque-live") return;
-    try {
-      const state = await fetchLiveState();
-      setLiveMeta(state);
-      const audio = audioRef.current;
+const resyncMosqueLive = async () => {
+  if (!audioRef.current || currentStation?.id !== "mosque-live") return;
+  try {
+    const state = await fetchLiveState();
+    setLiveMeta(state);
+    const audio = audioRef.current;
 
-      if (state.url !== liveUrlRef.current) {
-        // track (or mode — recitation <-> adhan) changed under us — jump to the new one
-        liveUrlRef.current = state.url;
-        audio.src = state.url;
-        audio.onloadedmetadata = () => {
-          audio.currentTime = state.offsetSeconds;
-        };
-        if (isPlayingRef.current) audio.play().catch(() => {});
-        return;
-      }
-
-      if (
-        Math.abs(audio.currentTime - state.offsetSeconds) >
-        DRIFT_TOLERANCE_SECONDS
-      ) {
-        audio.currentTime = state.offsetSeconds;
-      }
-    } catch {
-      // try again next tick
-    }
-  };
-
-  const startMosqueLive = async (station: RadioStation) => {
-    setError("");
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = "";
-      audioRef.current.load();
-      audioRef.current = null;
-    }
-    clearResync();
-    setCurrentStation(station);
-    setIsPlaying(false);
-    setIsLoading(true);
-
-    try {
-      const state = await fetchLiveState();
-      setLiveMeta(state);
+    if (state.url !== liveUrlRef.current) {
       liveUrlRef.current = state.url;
-
-      const audio = new Audio();
-      audio.preload = "auto";
-      audio.volume = volume;
-      audioRef.current = audio;
-
-      audio.onloadedmetadata = () => {
-        audio.currentTime = state.offsetSeconds;
-      };
-      audio.onplaying = () => {
-        setIsPlaying(true);
-        setIsLoading(false);
-      };
-      audio.onwaiting = () => setIsLoading(true);
-      audio.onpause = () => setIsPlaying(false);
-      audio.onended = () => resyncMosqueLive();
-      audio.onerror = () => {
-        setIsLoading(false);
-        setIsPlaying(false);
-        setError(isAr ? "تعذّر تشغيل البث المباشر." : "Live broadcast failed.");
-      };
-
       audio.src = state.url;
-      await audio.play().catch(() => {});
 
-      resyncTimerRef.current = window.setInterval(
-        resyncMosqueLive,
-        RESYNC_INTERVAL_MS,
-      );
-    } catch {
-      setIsLoading(false);
-      setError(
-        isAr
-          ? "تعذّر الاتصال بالبث المباشر."
-          : "Couldn't reach the live broadcast.",
-      );
+      await new Promise<void>((resolve) => {
+        const onMeta = () => {
+          audio.removeEventListener("loadedmetadata", onMeta);
+          resolve();
+        };
+        audio.addEventListener("loadedmetadata", onMeta);
+        setTimeout(resolve, 3000);
+      });
+
+      audio.currentTime = state.offsetSeconds;
+      if (isPlayingRef.current) await audio.play().catch(() => {});
+      return;
     }
-  };
+
+    if (
+      Math.abs(audio.currentTime - state.offsetSeconds) >
+      DRIFT_TOLERANCE_SECONDS
+    ) {
+      audio.currentTime = state.offsetSeconds;
+    }
+  } catch {
+    // try again next tick
+  }
+};
+
+const startMosqueLive = async (station: RadioStation) => {
+  setError("");
+  if (audioRef.current) {
+    audioRef.current.pause();
+    audioRef.current.src = "";
+    audioRef.current.load();
+    audioRef.current = null;
+  }
+  clearResync();
+  setCurrentStation(station);
+  setIsPlaying(false);
+  setIsLoading(true);
+
+  try {
+    const state = await fetchLiveState();
+    setLiveMeta(state);
+    liveUrlRef.current = state.url;
+
+    const audio = new Audio();
+    audio.preload = "auto";
+    audio.volume = volume;
+    audioRef.current = audio;
+
+    audio.onplaying = () => {
+      setIsPlaying(true);
+      setIsLoading(false);
+    };
+    audio.onwaiting = () => setIsLoading(true);
+    audio.onpause = () => setIsPlaying(false);
+    audio.onended = () => resyncMosqueLive();
+    audio.onerror = () => {
+      setIsLoading(false);
+      setIsPlaying(false);
+      setError(isAr ? "تعذّر تشغيل البث المباشر." : "Live broadcast failed.");
+    };
+
+    audio.src = state.url;
+
+    // Wait for metadata before seeking — seeking before this fires gets
+    // silently dropped on some browsers, which is why it was starting
+    // from 0 instead of jumping to the live offset.
+    await new Promise<void>((resolve) => {
+      const onMeta = () => {
+        audio.removeEventListener("loadedmetadata", onMeta);
+        resolve();
+      };
+      audio.addEventListener("loadedmetadata", onMeta);
+      // Safety timeout in case loadedmetadata never fires (bad stream/CORS)
+      setTimeout(resolve, 3000);
+    });
+
+    audio.currentTime = state.offsetSeconds;
+    await audio.play().catch(() => {});
+
+    resyncTimerRef.current = window.setInterval(
+      resyncMosqueLive,
+      RESYNC_INTERVAL_MS,
+    );
+  } catch {
+    setIsLoading(false);
+    setError(
+      isAr
+        ? "تعذّر الاتصال بالبث المباشر."
+        : "Couldn't reach the live broadcast.",
+    );
+  }
+};
 
   const playStation = (station: RadioStation) => {
     setError("");
