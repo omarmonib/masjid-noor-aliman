@@ -119,11 +119,25 @@ export default function RadioPage({ locale }: { locale: string }) {
       setIsLoading(true);
     };
 
-    // Set src and play() in the same synchronous call stack as the tap.
-    // Routed through our own HTTPS proxy — some stations (e.g. Cairo Quran
-    // via radio.garden) redirect to a plain http:// node, which gets
-    // blocked as Mixed Content when requested directly from an https page.
-    audio.src = `/api/radio/proxy?url=${encodeURIComponent(station.streamUrl)}`;
+    // Play the station's HTTPS stream directly from the browser/WebView.
+    //
+    // We deliberately do NOT route this through /api/radio/proxy anymore.
+    // Several of these CDNs/Icecast hosts (Cloudflare-fronted or otherwise)
+    // block requests coming from known cloud/datacenter IP ranges to guard
+    // against bandwidth theft — Vercel's serverless functions fall into
+    // that category, so every proxied request was getting silently
+    // rejected (502/500/timeout) even though the exact same URL works
+    // fine from a normal residential connection. A real listener's
+    // browser/phone requesting the stream directly looks like ordinary
+    // traffic and isn't blocked.
+    //
+    // The proxy is still useful (and still exists) for any station whose
+    // stream is only served over plain HTTP, since that would otherwise
+    // get blocked as mixed content on an HTTPS page. All current entries
+    // in radio-stations.ts are HTTPS, so direct playback is used for all
+    // of them; if an HTTP-only station is ever added back, route just
+    // that station's URL through the proxy instead.
+    audio.src = station.streamUrl;
     const playPromise = audio.play();
     if (playPromise) {
       playPromise.catch((e) => {

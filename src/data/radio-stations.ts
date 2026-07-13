@@ -20,6 +20,15 @@ export const RADIO_STATIONS: RadioStation[] = [
     icon: "📻",
   },
   {
+    id: "egypt-quran",
+    nameAr: "إذاعة القرآن الكريم — مصر",
+    nameEn: "Egypt Quran Radio",
+    country: "🇪🇬 مصر",
+    category: "quran",
+    streamUrl: "https://stream.radiojar.com/8s5u5tpdtwzuv",
+    icon: "📻",
+  },
+  {
     id: "sharjah-quran",
     nameAr: "إذاعة القرآن الكريم — الشارقة",
     nameEn: "Sharjah Quran Radio",
