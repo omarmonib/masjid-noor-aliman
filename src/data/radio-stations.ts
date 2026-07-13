@@ -39,6 +39,15 @@ export const RADIO_STATIONS: RadioStation[] = [
     icon: "📻",
   },
   {
+    id: "Nablus-quran",
+    nameAr: "إذاعة القرآن الكريم — نابلس",
+    nameEn: "Nablus Quran Radio",
+    country: "🇵🇸 فلسطين",
+    category: "quran",
+    streamUrl: "https://quran-radio.org:8899/;?type=http&nocache=29",
+    icon: "📻",
+  },
+  {
     id: "mixed-quran",
     nameAr: "إذاعة القرآن — قراء متعددون",
     nameEn: "Quran Radio (Mixed Reciters)",
