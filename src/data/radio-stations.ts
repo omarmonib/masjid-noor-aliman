@@ -11,13 +11,12 @@ export interface RadioStation {
 export const RADIO_STATIONS: RadioStation[] = [
   // ── Quran Radio Stations ────────────────────────────────────────
   {
-    id: "cairo-quran",
-    nameAr: "إذاعة القرآن الكريم — مصر",
-    nameEn: "Egyptian Quran Radio (Cairo)",
-    country: "🇪🇬 مصر",
+    id: "saudi-quran",
+    nameAr: "إذاعة القرآن الكريم — السعودية",
+    nameEn: "Quran Radio (Saudi Arabia)",
+    country: "🇸🇦 السعودية",
     category: "quran",
-    streamUrl:
-      "https://radio.garden/api/ara/content/listen/GQxvGBNK/channel.mp3",
+    streamUrl: "https://stream.radiojar.com/0tpy1h0kxtzuv",
     icon: "📻",
   },
   {
@@ -31,12 +30,12 @@ export const RADIO_STATIONS: RadioStation[] = [
     icon: "📻",
   },
   {
-    id: "nablus-quran",
-    nameAr: "إذاعة القرآن الكريم — نابلس",
-    nameEn: "Nablus Quran Radio",
-    country: "🇵🇸 فلسطين",
+    id: "mixed-quran",
+    nameAr: "إذاعة القرآن — قراء متعددون",
+    nameEn: "Quran Radio (Mixed Reciters)",
+    country: "🌍 متنوع",
     category: "quran",
-    streamUrl: "https://quran-radio.org:8899/;?type=http&nocache=1",
+    streamUrl: "https://backup.qurango.net/radio/mix",
     icon: "📻",
   },
   // ── Sunnah Radio ───────────────────────────────────────────────
