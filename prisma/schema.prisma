@@ -64,6 +64,12 @@ model MosqueEvent {
   updatedAt     DateTime @updatedAt
 }
 
+model RadioTrackDuration {
+  url             String   @id
+  durationSeconds Float
+  createdAt       DateTime @default(now())
+}
+
 model PushSubscription {
   id        String   @id @default(cuid())
   endpoint  String   @unique

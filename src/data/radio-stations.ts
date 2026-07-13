@@ -11,6 +11,16 @@ export interface RadioStation {
 export const RADIO_STATIONS: RadioStation[] = [
   // ── Quran Radio Stations ────────────────────────────────────────
   {
+    id: "mosque-live",
+    nameAr: "إذاعة المسجد المباشرة",
+    nameEn: "Mosque Live Radio",
+    country: "🕌 نور الإيمان",
+    category: "quran",
+    streamUrl: "",
+    icon: "🕌",
+    isLive: true,
+  },
+  {
     id: "saudi-quran",
     nameAr: "إذاعة القرآن الكريم — السعودية",
     nameEn: "Quran Radio (Saudi Arabia)",
@@ -73,3 +83,14 @@ export const CATEGORIES = [
   { id: "quran", labelAr: "إذاعات القرآن", labelEn: "Quran Radio", icon: "📖" },
   { id: "sunnah", labelAr: "إذاعة السنة", labelEn: "Sunnah Radio", icon: "🕌" },
 ] as const;
+
+export interface RadioStation {
+  id: string;
+  nameAr: string;
+  nameEn: string;
+  country: string;
+  category: "quran" | "sunnah" | "reciter";
+  streamUrl: string;
+  icon: string;
+  isLive?: boolean;
+}

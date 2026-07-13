@@ -6,7 +6,18 @@ import {
   CATEGORIES,
   type RadioStation,
 } from "@/data/radio-stations";
-import MosqueRadioPlayer from "./MosqueRadioPlayer";
+import { SURAH_NAMES_AR } from "@/lib/surahs";
+
+const RESYNC_INTERVAL_MS = 45000;
+const DRIFT_TOLERANCE_SECONDS = 5;
+
+interface LiveState {
+  mode: "adhan" | "recitation";
+  url: string;
+  offsetSeconds: number;
+  reciterName?: string;
+  surahId?: number;
+}
 
 function CategoryBadge({ category }: { category: RadioStation["category"] }) {
   const map: Record<
@@ -37,15 +48,32 @@ export default function RadioPage({ locale }: { locale: string }) {
   const [isLoading, setIsLoading] = useState(false);
   const [volume, setVolume] = useState(1);
   const [error, setError] = useState("");
+  const [liveMeta, setLiveMeta] = useState<LiveState | null>(null);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const resyncTimerRef = useRef<number | null>(null);
+  const liveUrlRef = useRef<string | null>(null);
+  const isPlayingRef = useRef(false);
+  isPlayingRef.current = isPlaying;
 
   const filtered =
     activeCategory === "all"
       ? RADIO_STATIONS
       : RADIO_STATIONS.filter((s) => s.category === activeCategory);
 
+  const surahName = (id?: number) =>
+    id ? (isAr ? SURAH_NAMES_AR[id - 1] || `سورة ${id}` : `Surah ${id}`) : "";
+
+  const clearResync = () => {
+    if (resyncTimerRef.current) {
+      window.clearInterval(resyncTimerRef.current);
+      resyncTimerRef.current = null;
+    }
+  };
+
   useEffect(() => {
     return () => {
+      clearResync();
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.src = "";
@@ -53,16 +81,123 @@ export default function RadioPage({ locale }: { locale: string }) {
     };
   }, []);
 
+  const fetchLiveState = async (): Promise<LiveState> => {
+    const res = await fetch("/api/radio/mosque-station", { cache: "no-store" });
+    if (!res.ok) throw new Error("live fetch failed");
+    return res.json();
+  };
+
+  const resyncMosqueLive = async () => {
+    if (!audioRef.current || currentStation?.id !== "mosque-live") return;
+    try {
+      const state = await fetchLiveState();
+      setLiveMeta(state);
+      const audio = audioRef.current;
+
+      if (state.url !== liveUrlRef.current) {
+        // track (or mode — recitation <-> adhan) changed under us — jump to the new one
+        liveUrlRef.current = state.url;
+        audio.src = state.url;
+        audio.onloadedmetadata = () => {
+          audio.currentTime = state.offsetSeconds;
+        };
+        if (isPlayingRef.current) audio.play().catch(() => {});
+        return;
+      }
+
+      if (
+        Math.abs(audio.currentTime - state.offsetSeconds) >
+        DRIFT_TOLERANCE_SECONDS
+      ) {
+        audio.currentTime = state.offsetSeconds;
+      }
+    } catch {
+      // try again next tick
+    }
+  };
+
+  const startMosqueLive = async (station: RadioStation) => {
+    setError("");
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = "";
+      audioRef.current.load();
+      audioRef.current = null;
+    }
+    clearResync();
+    setCurrentStation(station);
+    setIsPlaying(false);
+    setIsLoading(true);
+
+    try {
+      const state = await fetchLiveState();
+      setLiveMeta(state);
+      liveUrlRef.current = state.url;
+
+      const audio = new Audio();
+      audio.preload = "auto";
+      audio.volume = volume;
+      audioRef.current = audio;
+
+      audio.onloadedmetadata = () => {
+        audio.currentTime = state.offsetSeconds;
+      };
+      audio.onplaying = () => {
+        setIsPlaying(true);
+        setIsLoading(false);
+      };
+      audio.onwaiting = () => setIsLoading(true);
+      audio.onpause = () => setIsPlaying(false);
+      audio.onended = () => resyncMosqueLive();
+      audio.onerror = () => {
+        setIsLoading(false);
+        setIsPlaying(false);
+        setError(isAr ? "تعذّر تشغيل البث المباشر." : "Live broadcast failed.");
+      };
+
+      audio.src = state.url;
+      await audio.play().catch(() => {});
+
+      resyncTimerRef.current = window.setInterval(
+        resyncMosqueLive,
+        RESYNC_INTERVAL_MS,
+      );
+    } catch {
+      setIsLoading(false);
+      setError(
+        isAr
+          ? "تعذّر الاتصال بالبث المباشر."
+          : "Couldn't reach the live broadcast.",
+      );
+    }
+  };
+
   const playStation = (station: RadioStation) => {
     setError("");
 
-    // Same station — toggle play/pause
+    if (station.isLive) {
+      if (currentStation?.id === station.id) {
+        if (isPlaying) {
+          audioRef.current?.pause();
+        } else {
+          // resuming rejoins the live position — it does not continue from where it paused
+          resyncMosqueLive().then(() =>
+            audioRef.current?.play().catch(() => {}),
+          );
+        }
+        return;
+      }
+      startMosqueLive(station);
+      return;
+    }
+
+    clearResync();
+
     if (currentStation?.id === station.id) {
       if (isPlaying) {
         audioRef.current?.pause();
         setIsPlaying(false);
       } else {
-        // Resume — must call play() directly in the gesture handler
         const playPromise = audioRef.current?.play();
         if (playPromise) {
           playPromise
@@ -75,7 +210,6 @@ export default function RadioPage({ locale }: { locale: string }) {
       return;
     }
 
-    // Stop current audio completely
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.src = "";
@@ -84,11 +218,10 @@ export default function RadioPage({ locale }: { locale: string }) {
     }
 
     setCurrentStation(station);
+    setLiveMeta(null);
     setIsPlaying(false);
     setIsLoading(true);
 
-    // Create audio element and set src in the same synchronous tick
-    // as the user gesture — critical for mobile autoplay policy
     const audio = new Audio();
     audio.preload = "none";
     audio.volume = volume;
@@ -114,35 +247,12 @@ export default function RadioPage({ locale }: { locale: string }) {
     };
     audio.onpause = () => setIsPlaying(false);
     audio.onended = () => setIsPlaying(false);
-    audio.onstalled = () => {
-      // Stream stalled — common on mobile with slow connections
-      setIsLoading(true);
-    };
+    audio.onstalled = () => setIsLoading(true);
 
-    // Play the station's HTTPS stream directly from the browser/WebView.
-    //
-    // We deliberately do NOT route this through /api/radio/proxy anymore.
-    // Several of these CDNs/Icecast hosts (Cloudflare-fronted or otherwise)
-    // block requests coming from known cloud/datacenter IP ranges to guard
-    // against bandwidth theft — Vercel's serverless functions fall into
-    // that category, so every proxied request was getting silently
-    // rejected (502/500/timeout) even though the exact same URL works
-    // fine from a normal residential connection. A real listener's
-    // browser/phone requesting the stream directly looks like ordinary
-    // traffic and isn't blocked.
-    //
-    // The proxy is still useful (and still exists) for any station whose
-    // stream is only served over plain HTTP, since that would otherwise
-    // get blocked as mixed content on an HTTPS page. All current entries
-    // in radio-stations.ts are HTTPS, so direct playback is used for all
-    // of them; if an HTTP-only station is ever added back, route just
-    // that station's URL through the proxy instead.
-    audio.src = station.streamUrl;
+    audio.src = `/api/radio/proxy?url=${encodeURIComponent(station.streamUrl)}`;
     const playPromise = audio.play();
     if (playPromise) {
       playPromise.catch((e) => {
-        // NotAllowedError = autoplay blocked (shouldn't happen since we're in gesture handler)
-        // AbortError = src changed before play resolved (safe to ignore)
         if (e?.name !== "AbortError") {
           setIsLoading(false);
           setError(isAr ? "تعذّر تشغيل البث." : "Playback failed.");
@@ -157,6 +267,7 @@ export default function RadioPage({ locale }: { locale: string }) {
   };
 
   const stop = () => {
+    clearResync();
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.src = "";
@@ -166,12 +277,21 @@ export default function RadioPage({ locale }: { locale: string }) {
     setIsPlaying(false);
     setIsLoading(false);
     setCurrentStation(null);
+    setLiveMeta(null);
     setError("");
+  };
+
+  const nowPlayingLabel = () => {
+    if (!currentStation) return "";
+    if (currentStation.isLive && liveMeta) {
+      if (liveMeta.mode === "adhan") return isAr ? "الأذان" : "Adhan";
+      return `${liveMeta.reciterName ?? ""} · ${surahName(liveMeta.surahId)}`;
+    }
+    return isAr ? currentStation.nameAr : currentStation.nameEn;
   };
 
   return (
     <main className="min-h-screen bg-surface">
-      {/* Header */}
       <div
         className="py-14 px-4 text-center text-white"
         style={{ background: "linear-gradient(135deg, #0D3D28, #1B6B4A)" }}
@@ -187,14 +307,12 @@ export default function RadioPage({ locale }: { locale: string }) {
         </p>
       </div>
 
-      {/* Now Playing Bar */}
       {currentStation && (
         <div
           className="sticky top-16 z-30 px-4 py-3 border-b border-white/10 text-white"
           style={{ background: "linear-gradient(to right, #0D3D28, #1B6B4A)" }}
         >
           <div className="max-w-3xl mx-auto flex items-center gap-4">
-            {/* Icon */}
             <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-2xl flex-shrink-0">
               {isLoading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -203,10 +321,9 @@ export default function RadioPage({ locale }: { locale: string }) {
               )}
             </div>
 
-            {/* Info */}
             <div className="flex-1 min-w-0">
               <p className="font-arabic font-bold text-sm truncate">
-                {isAr ? currentStation.nameAr : currentStation.nameEn}
+                {nowPlayingLabel()}
               </p>
               <p className="font-arabic text-white/50 text-xs">
                 {isPlaying
@@ -228,7 +345,6 @@ export default function RadioPage({ locale }: { locale: string }) {
               )}
             </div>
 
-            {/* Volume */}
             <div className="hidden sm:flex items-center gap-2">
               <span className="text-white/50 text-xs">🔈</span>
               <input
@@ -243,7 +359,6 @@ export default function RadioPage({ locale }: { locale: string }) {
               <span className="text-white/50 text-xs">🔊</span>
             </div>
 
-            {/* Play/Pause */}
             <button
               onClick={() => playStation(currentStation)}
               disabled={isLoading}
@@ -252,7 +367,6 @@ export default function RadioPage({ locale }: { locale: string }) {
               {isLoading ? "⏳" : isPlaying ? "⏸" : "▶️"}
             </button>
 
-            {/* Stop */}
             <button
               onClick={stop}
               className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors text-lg"
@@ -264,12 +378,6 @@ export default function RadioPage({ locale }: { locale: string }) {
       )}
 
       <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
-        {/* Dedicated mosque station — random recitations from 5 reciters,
-            with automatic Adhan interruption. Runs its own <audio> element,
-            independent from the station list below. */}
-        <MosqueRadioPlayer locale={locale} />
-
-        {/* Category filter */}
         <div className="flex gap-2 flex-wrap">
           {CATEGORIES.map((cat) => (
             <button
@@ -287,7 +395,6 @@ export default function RadioPage({ locale }: { locale: string }) {
           ))}
         </div>
 
-        {/* Station list */}
         <div className="space-y-3">
           {filtered.map((station) => {
             const isActive = currentStation?.id === station.id;
@@ -301,7 +408,6 @@ export default function RadioPage({ locale }: { locale: string }) {
                     : "border-gray-100 bg-white hover:border-primary/30 hover:shadow-sm"
                 }`}
               >
-                {/* Icon */}
                 <div
                   className={`w-14 h-14 rounded-2xl flex items-center justify-center text-3xl flex-shrink-0 transition-colors ${
                     isActive ? "bg-primary/10" : "bg-gray-50"
@@ -314,14 +420,16 @@ export default function RadioPage({ locale }: { locale: string }) {
                   )}
                 </div>
 
-                {/* Info */}
                 <div className="flex-1 min-w-0 text-right">
                   <p
-                    className={`font-arabic font-bold text-base truncate ${
-                      isActive ? "text-primary" : "text-gray-800"
-                    }`}
+                    className={`font-arabic font-bold text-base truncate ${isActive ? "text-primary" : "text-gray-800"}`}
                   >
                     {isAr ? station.nameAr : station.nameEn}
+                    {station.isLive && (
+                      <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-600 align-middle">
+                        {isAr ? "مباشر" : "LIVE"}
+                      </span>
+                    )}
                   </p>
                   <div className="flex items-center gap-2 mt-1 justify-end">
                     <span className="font-arabic text-xs text-gray-400">
@@ -331,7 +439,6 @@ export default function RadioPage({ locale }: { locale: string }) {
                   </div>
                 </div>
 
-                {/* Play indicator */}
                 <div
                   className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
                     isActive && isPlaying
