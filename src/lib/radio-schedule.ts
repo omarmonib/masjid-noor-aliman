@@ -96,3 +96,73 @@ export function computeLiveState(
     trackDurationSeconds: durationsList[0],
   };
 }
+
+// ── Track fetching ─────────────────────────────────────────────────
+// Moved here (shared) so both /api/radio/mosque-station and the new
+// /api/radio/live-stream route build the exact same playlist without
+// duplicating this logic in two files.
+
+interface Moshaf {
+  id: number;
+  name: string;
+  server: string;
+  surah_total: string;
+  surah_list: string;
+  moshaf_type: number;
+}
+
+interface ApiReciter {
+  id: number;
+  name: string;
+  letter: string;
+  moshaf: Moshaf[];
+}
+
+const KEYWORDS = ["المنشاوي", "الباسط", "الحصري", "المعيقلي", "الدوسري"];
+
+export async function fetchTracks(): Promise<RadioTrack[]> {
+  const res = await fetch(
+    "https://www.mp3quran.net/api/v3/reciters?language=ar",
+    {
+      next: { revalidate: 60 * 60 * 24 * 7 },
+    },
+  );
+  if (!res.ok) throw new Error(`mp3quran API HTTP ${res.status}`);
+
+  const data = await res.json();
+  const reciters: ApiReciter[] = data.reciters || [];
+  const tracks: RadioTrack[] = [];
+
+  for (const keyword of KEYWORDS) {
+    const candidates = reciters.filter((r) => r.name.includes(keyword));
+    if (candidates.length === 0) continue;
+
+    let best: { reciter: ApiReciter; moshaf: Moshaf } | null = null;
+    for (const reciter of candidates) {
+      for (const moshaf of reciter.moshaf || []) {
+        const total = parseInt(moshaf.surah_total, 10) || 0;
+        const bestTotal = best
+          ? parseInt(best.moshaf.surah_total, 10) || 0
+          : -1;
+        if (total > bestTotal) best = { reciter, moshaf };
+      }
+    }
+    if (!best) continue;
+
+    const surahIds = best.moshaf.surah_list
+      .split(",")
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => Number.isFinite(n) && n >= 1 && n <= 114);
+
+    for (const surahId of surahIds) {
+      tracks.push({
+        reciterId: best.reciter.id,
+        reciterName: best.reciter.name,
+        surahId,
+        url: `${best.moshaf.server}${String(surahId).padStart(3, "0")}.mp3`,
+      });
+    }
+  }
+
+  return tracks;
+}

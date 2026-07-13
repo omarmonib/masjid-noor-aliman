@@ -9,7 +9,6 @@ import {
 import { SURAH_NAMES_AR } from "@/lib/surahs";
 
 const RESYNC_INTERVAL_MS = 45000;
-const DRIFT_TOLERANCE_SECONDS = 5;
 
 interface LiveState {
   mode: "adhan" | "recitation";
@@ -20,14 +19,15 @@ interface LiveState {
 }
 
 function CategoryBadge({ category }: { category: RadioStation["category"] }) {
-  const map: Record<
-    RadioStation["category"],
-    { label: string; color: string }
-  > = {
+  const map = {
     quran: { label: "قرآن كريم", color: "bg-green-100 text-green-700" },
     sunnah: { label: "سنة نبوية", color: "bg-amber-100 text-amber-700" },
     reciter: { label: "إذاعة قارئ", color: "bg-blue-100 text-blue-700" },
-  };
+  } as const satisfies Record<
+    RadioStation["category"],
+    { label: string; color: string }
+  >;
+
   const { label, color } = map[category] ?? map.quran;
   return (
     <span
@@ -87,109 +87,92 @@ export default function RadioPage({ locale }: { locale: string }) {
     return res.json();
   };
 
-const resyncMosqueLive = async () => {
-  if (!audioRef.current || currentStation?.id !== "mosque-live") return;
-  try {
-    const state = await fetchLiveState();
-    setLiveMeta(state);
-    const audio = audioRef.current;
+  // Track (or adhan/recitation mode) changed under us, or we're joining
+  // fresh — (re)point the element at the live-stream endpoint, which
+  // returns audio already trimmed server-side to the current live byte
+  // position. We never seek client-side here: relying on the browser's
+  // `seekable` ranges against the upstream mp3quran.net file was the root
+  // cause of playback restarting from 0 (upstream doesn't reliably honor
+  // Range requests, so seekable never covered the live offset).
+  const resyncMosqueLive = async () => {
+    if (!audioRef.current || currentStation?.id !== "mosque-live") return;
+    try {
+      const state = await fetchLiveState();
+      setLiveMeta(state);
+      const audio = audioRef.current;
 
-    if (state.url !== liveUrlRef.current) {
+      if (state.url !== liveUrlRef.current) {
+        liveUrlRef.current = state.url;
+        audio.src = `/api/radio/live-stream?t=${Date.now()}`;
+        if (isPlayingRef.current) await audio.play().catch(() => {});
+        return;
+      }
+
+      // Same underlying track still live — the stream itself is already
+      // positioned correctly server-side, so there's no client-side drift
+      // to correct here (unlike the old seek-based approach).
+    } catch {
+      // try again next tick
+    }
+  };
+
+  const startMosqueLive = async (station: RadioStation) => {
+    setError("");
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = "";
+      audioRef.current.load();
+      audioRef.current = null;
+    }
+    clearResync();
+    setCurrentStation(station);
+    setIsPlaying(false);
+    setIsLoading(true);
+
+    try {
+      // Still fetched for display metadata (reciter name, surah, mode) —
+      // the actual playback offset is now handled server-side by
+      // /api/radio/live-stream, not by seeking this response's offset.
+      const state = await fetchLiveState();
+      setLiveMeta(state);
       liveUrlRef.current = state.url;
-      audio.src = state.url;
 
-      await new Promise<void>((resolve) => {
-        const onMeta = () => {
-          audio.removeEventListener("loadedmetadata", onMeta);
-          resolve();
-        };
-        audio.addEventListener("loadedmetadata", onMeta);
-        setTimeout(resolve, 3000);
-      });
+      const audio = new Audio();
+      audio.preload = "auto";
+      audio.volume = volume;
+      audioRef.current = audio;
 
-      audio.currentTime = state.offsetSeconds;
-      if (isPlayingRef.current) await audio.play().catch(() => {});
-      return;
-    }
-
-    if (
-      Math.abs(audio.currentTime - state.offsetSeconds) >
-      DRIFT_TOLERANCE_SECONDS
-    ) {
-      audio.currentTime = state.offsetSeconds;
-    }
-  } catch {
-    // try again next tick
-  }
-};
-
-const startMosqueLive = async (station: RadioStation) => {
-  setError("");
-  if (audioRef.current) {
-    audioRef.current.pause();
-    audioRef.current.src = "";
-    audioRef.current.load();
-    audioRef.current = null;
-  }
-  clearResync();
-  setCurrentStation(station);
-  setIsPlaying(false);
-  setIsLoading(true);
-
-  try {
-    const state = await fetchLiveState();
-    setLiveMeta(state);
-    liveUrlRef.current = state.url;
-
-    const audio = new Audio();
-    audio.preload = "auto";
-    audio.volume = volume;
-    audioRef.current = audio;
-
-    audio.onplaying = () => {
-      setIsPlaying(true);
-      setIsLoading(false);
-    };
-    audio.onwaiting = () => setIsLoading(true);
-    audio.onpause = () => setIsPlaying(false);
-    audio.onended = () => resyncMosqueLive();
-    audio.onerror = () => {
-      setIsLoading(false);
-      setIsPlaying(false);
-      setError(isAr ? "تعذّر تشغيل البث المباشر." : "Live broadcast failed.");
-    };
-
-    audio.src = state.url;
-
-    // Wait for metadata before seeking — seeking before this fires gets
-    // silently dropped on some browsers, which is why it was starting
-    // from 0 instead of jumping to the live offset.
-    await new Promise<void>((resolve) => {
-      const onMeta = () => {
-        audio.removeEventListener("loadedmetadata", onMeta);
-        resolve();
+      audio.onplaying = () => {
+        setIsPlaying(true);
+        setIsLoading(false);
       };
-      audio.addEventListener("loadedmetadata", onMeta);
-      // Safety timeout in case loadedmetadata never fires (bad stream/CORS)
-      setTimeout(resolve, 3000);
-    });
+      audio.onwaiting = () => setIsLoading(true);
+      audio.onpause = () => setIsPlaying(false);
+      audio.onended = () => resyncMosqueLive();
+      audio.onerror = () => {
+        setIsLoading(false);
+        setIsPlaying(false);
+        setError(isAr ? "تعذّر تشغيل البث المباشر." : "Live broadcast failed.");
+      };
 
-    audio.currentTime = state.offsetSeconds;
-    await audio.play().catch(() => {});
+      // Cache-bust so every (re)start hits the server fresh and lands on
+      // whatever the live position is *right now*, never a cached response.
+      audio.src = `/api/radio/live-stream?t=${Date.now()}`;
+      await audio.play().catch(() => {});
 
-    resyncTimerRef.current = window.setInterval(
-      resyncMosqueLive,
-      RESYNC_INTERVAL_MS,
-    );
-  } catch {
-    setIsLoading(false);
-    setError(
-      isAr
-        ? "تعذّر الاتصال بالبث المباشر."
-        : "Couldn't reach the live broadcast.",
-    );
-  }
-};
+      resyncTimerRef.current = window.setInterval(
+        resyncMosqueLive,
+        RESYNC_INTERVAL_MS,
+      );
+    } catch {
+      setIsLoading(false);
+      setError(
+        isAr
+          ? "تعذّر الاتصال بالبث المباشر."
+          : "Couldn't reach the live broadcast.",
+      );
+    }
+  };
 
   const playStation = (station: RadioStation) => {
     setError("");
@@ -199,10 +182,9 @@ const startMosqueLive = async (station: RadioStation) => {
         if (isPlaying) {
           audioRef.current?.pause();
         } else {
-          // resuming rejoins the live position — it does not continue from where it paused
-          resyncMosqueLive().then(() =>
-            audioRef.current?.play().catch(() => {}),
-          );
+          // Resuming rejoins the live position via a fresh request — it
+          // does not continue from wherever it was paused.
+          startMosqueLive(station);
         }
         return;
       }

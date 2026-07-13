@@ -1,3 +1,5 @@
+
+
 export interface RadioStation {
   id: string;
   nameAr: string;
@@ -6,6 +8,7 @@ export interface RadioStation {
   category: "quran" | "sunnah" | "reciter";
   streamUrl: string;
   icon: string;
+  isLive?: boolean;
 }
 
 export const RADIO_STATIONS: RadioStation[] = [
@@ -84,13 +87,3 @@ export const CATEGORIES = [
   { id: "sunnah", labelAr: "إذاعة السنة", labelEn: "Sunnah Radio", icon: "🕌" },
 ] as const;
 
-export interface RadioStation {
-  id: string;
-  nameAr: string;
-  nameEn: string;
-  country: string;
-  category: "quran" | "sunnah" | "reciter";
-  streamUrl: string;
-  icon: string;
-  isLive?: boolean;
-}
