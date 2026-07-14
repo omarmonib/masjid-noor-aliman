@@ -16,10 +16,18 @@ import {
   saveMemorizationBookmark,
 } from "@/lib/quran-bookmarks";
 import type { ReciterMoshaf } from "@/lib/reciters";
+import { useIsDesktop } from "@/hooks/useIsDesktop";
 import SurahPanel from "./SurahPanel";
 import ReciterPanel from "./ReciterPanel";
+import QuranSearchPanel from "./QuranSearchPanel";
 import AudioPlayer from "./AudioPlayer";
-import { Bookmark, BookmarkCheck, PenLine } from "lucide-react";
+import {
+  Bookmark,
+  BookmarkCheck,
+  PenLine,
+  Search,
+  Settings2,
+} from "lucide-react";
 
 interface Props {
   locale: string;
@@ -71,7 +79,23 @@ export default function MushafViewer({ locale }: Props) {
   const [zoom, setZoom] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [surahPanelOpen, setSurahPanelOpen] = useState(false);
+
+  // ── Responsive settings (reciter) panel: docked & visible by default on
+  // desktop, hidden by default on mobile/narrow screens, and re-synced
+  // automatically whenever the viewport crosses the desktop breakpoint. ──
+  const isDesktopPanel = useIsDesktop(1024);
   const [reciterPanelOpen, setReciterPanelOpen] = useState(false);
+  useEffect(() => {
+    setReciterPanelOpen(isDesktopPanel);
+  }, [isDesktopPanel]);
+
+  // ── Quran search ──
+  const [searchPanelOpen, setSearchPanelOpen] = useState(false);
+  const [searchHighlightKey, setSearchHighlightKey] = useState<string | null>(
+    null,
+  );
+  const searchHighlightTimeoutRef = useRef<number | null>(null);
+
   const [activeVerseKey, setActiveVerseKey] = useState<string | null>(null);
   const [selectedReciter, setSelectedReciter] = useState<ReciterMoshaf | null>(
     null,
@@ -309,8 +333,39 @@ export default function MushafViewer({ locale }: Props) {
   const handleSelectReciter = (m: ReciterMoshaf) => {
     setSelectedReciter(m);
     localStorage.setItem(RECITER_KEY, JSON.stringify(m));
-    setReciterPanelOpen(false);
+    // Mobile/narrow drawer closes after picking; desktop stays docked open.
+    if (!isDesktopPanel) setReciterPanelOpen(false);
   };
+
+  const handleSearchNavigate = (page: number, verseKey: string) => {
+    goToPage(page);
+    setActiveVerseKey(verseKey);
+    setSearchHighlightKey(verseKey);
+    if (searchHighlightTimeoutRef.current) {
+      window.clearTimeout(searchHighlightTimeoutRef.current);
+    }
+    searchHighlightTimeoutRef.current = window.setTimeout(() => {
+      setSearchHighlightKey(null);
+    }, 3000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (searchHighlightTimeoutRef.current) {
+        window.clearTimeout(searchHighlightTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Once the target page has finished loading, scroll the searched verse
+  // into view.
+  useEffect(() => {
+    if (!searchHighlightKey || loading) return;
+    const el = document.querySelector(
+      `[data-verse-key="${CSS.escape(searchHighlightKey)}"]`,
+    );
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [searchHighlightKey, loading, pageNumber]);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -459,6 +514,27 @@ export default function MushafViewer({ locale }: Props) {
             >
               {isFullscreen ? "⤢" : "⛶"}
             </button>
+
+            <span className="w-px h-5 bg-white/10 mx-0.5" />
+
+            <button
+              onClick={() => setSearchPanelOpen(true)}
+              title={isAr ? "بحث في القرآن" : "Search Quran"}
+              className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+            >
+              <Search size={15} />
+            </button>
+            <button
+              onClick={() => setReciterPanelOpen((v) => !v)}
+              title={isAr ? "إعدادات القارئ" : "Reciter settings"}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                reciterPanelOpen
+                  ? "bg-[#C9A84C]/20 text-[#C9A84C]"
+                  : "bg-white/10 hover:bg-white/20 text-white"
+              }`}
+            >
+              <Settings2 size={15} />
+            </button>
           </div>
         </div>
       </div>
@@ -498,128 +574,148 @@ export default function MushafViewer({ locale }: Props) {
         </div>
       </div>
 
-      {/* Scrollable, zoomable Mushaf area — this is the ONLY part that scales/scrolls */}
-      <div
-        ref={scrollRef}
-        className="flex-1 overflow-auto px-4 py-6 pb-28"
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-      >
-        <div className="max-w-3xl mx-auto">
-          {loading ? (
-            <div className="flex items-center justify-center py-32">
-              <div className="text-center">
-                <div className="w-12 h-12 border-4 border-[#C9A84C]/30 border-t-[#C9A84C] rounded-full animate-spin mx-auto mb-4" />
-                <p className="font-arabic text-white/40">
-                  {isAr ? "جارٍ تحميل الصفحة..." : "Loading page..."}
-                </p>
+      {/* Scrollable, zoomable Mushaf area — wrapped together with the docked
+         reciter panel so the panel takes its own column width and the
+         Mushaf always keeps the maximum remaining reading area. */}
+      <div className="flex-1 flex min-h-0">
+        <div
+          ref={scrollRef}
+          className="flex-1 min-w-0 overflow-auto px-4 py-6 pb-28"
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+        >
+          <div className="max-w-3xl mx-auto">
+            {loading ? (
+              <div className="flex items-center justify-center py-32">
+                <div className="text-center">
+                  <div className="w-12 h-12 border-4 border-[#C9A84C]/30 border-t-[#C9A84C] rounded-full animate-spin mx-auto mb-4" />
+                  <p className="font-arabic text-white/40">
+                    {isAr ? "جارٍ تحميل الصفحة..." : "Loading page..."}
+                  </p>
+                </div>
               </div>
-            </div>
-          ) : (
-            <div
-              ref={contentRef}
-              style={{
-                transform: `scale(${zoom})`,
-                transformOrigin: "top center",
-              }}
-              className="rounded-2xl overflow-hidden shadow-2xl transition-transform duration-150"
-            >
+            ) : (
               <div
-                className="h-2"
+                ref={contentRef}
                 style={{
-                  background:
-                    "linear-gradient(to right, #C9A84C, #1B6B4A, #C9A84C)",
+                  transform: `scale(${zoom})`,
+                  transformOrigin: "top center",
                 }}
-              />
-              <div
-                className="pt-3 pb-1 text-center"
-                style={{
-                  background:
-                    "linear-gradient(135deg, #fdf8f0 0%, #faf4e8 100%)",
-                }}
+                className="rounded-2xl overflow-hidden shadow-2xl transition-transform duration-150"
               >
-                <span className="text-xs text-gray-400 font-arabic">
-                  {isAr ? `صفحة ${pageNumber}` : `Page ${pageNumber}`}
-                </span>
-              </div>
+                <div
+                  className="h-2"
+                  style={{
+                    background:
+                      "linear-gradient(to right, #C9A84C, #1B6B4A, #C9A84C)",
+                  }}
+                />
+                <div
+                  className="pt-3 pb-1 text-center"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, #fdf8f0 0%, #faf4e8 100%)",
+                  }}
+                >
+                  <span className="text-xs text-gray-400 font-arabic">
+                    {isAr ? `صفحة ${pageNumber}` : `Page ${pageNumber}`}
+                  </span>
+                </div>
 
-              <div
-                className="px-8 pb-6"
-                dir="rtl"
-                style={{
-                  background:
-                    "linear-gradient(135deg, #fdf8f0 0%, #faf4e8 100%)",
-                }}
-              >
-                {lines.map(({ key, words }) => (
-                  <div
-                    key={key}
-                    className="flex justify-center items-baseline flex-wrap"
-                    style={{ minHeight: "48px", marginBottom: "4px" }}
-                  >
-                    {words.map((word) => {
-                      const isEnd = word.charTypeName === "end";
-                      const isActive = word.verseKey === activeVerseKey;
+                <div
+                  className="px-8 pb-6"
+                  dir="rtl"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, #fdf8f0 0%, #faf4e8 100%)",
+                  }}
+                >
+                  {lines.map(({ key, words }) => (
+                    <div
+                      key={key}
+                      className="flex justify-center items-baseline flex-wrap"
+                      style={{ minHeight: "48px", marginBottom: "4px" }}
+                    >
+                      {words.map((word) => {
+                        const isEnd = word.charTypeName === "end";
+                        const isActive = word.verseKey === activeVerseKey;
+                        const isSearchHit =
+                          word.verseKey === searchHighlightKey;
 
-                      if (isEnd) {
+                        if (isEnd) {
+                          return (
+                            <span
+                              key={word.id}
+                              data-verse-key={word.verseKey}
+                              style={{
+                                fontFamily:
+                                  "'UthmanicHafs1Ver18', 'Amiri Quran', serif",
+                                fontSize: "clamp(12px, 4.5vw, 28px)",
+                                color: "#C9A84C",
+                                margin: "0 2px",
+                              }}
+                            >
+                              {word.textQpcHafs}
+                            </span>
+                          );
+                        }
+
                         return (
                           <span
                             key={word.id}
+                            data-verse-key={word.verseKey}
+                            onClick={() => setActiveVerseKey(word.verseKey)}
+                            title={word.verseKey}
+                            className={`cursor-pointer rounded transition-colors ${
+                              isSearchHit
+                                ? "bg-[#C9A84C]/40 ring-2 ring-[#C9A84C] animate-pulse"
+                                : isActive
+                                  ? "bg-[#C9A84C]/25"
+                                  : "hover:bg-primary/10"
+                            }`}
                             style={{
-                              fontFamily:
-                                "'UthmanicHafs1Ver18', 'Amiri Quran', serif",
-                              fontSize: "clamp(12px, 4.5vw, 28px)",
-                              color: "#C9A84C",
-                              margin: "0 2px",
+                              fontFamily: fontLoadedForPage
+                                ? `p${word.pageNumber}-v2`
+                                : "'UthmanicHafs1Ver18', 'Amiri Quran', serif",
+                              fontSize: "clamp(14px, 4vw, 32px)",
+                              lineHeight: "2.2",
+                              color: "#1a1a1a",
+                              padding: "0 1px",
                             }}
+                            dangerouslySetInnerHTML={
+                              fontLoadedForPage
+                                ? { __html: word.codeV2 }
+                                : undefined
+                            }
                           >
-                            {word.textQpcHafs}
+                            {!fontLoadedForPage ? word.textQpcHafs : undefined}
                           </span>
                         );
-                      }
+                      })}
+                    </div>
+                  ))}
+                </div>
 
-                      return (
-                        <span
-                          key={word.id}
-                          onClick={() => setActiveVerseKey(word.verseKey)}
-                          title={word.verseKey}
-                          className={`cursor-pointer rounded transition-colors ${
-                            isActive ? "bg-[#C9A84C]/25" : "hover:bg-primary/10"
-                          }`}
-                          style={{
-                            fontFamily: fontLoadedForPage
-                              ? `p${word.pageNumber}-v2`
-                              : "'UthmanicHafs1Ver18', 'Amiri Quran', serif",
-                            fontSize: "clamp(14px, 4vw, 32px)",
-                            lineHeight: "2.2",
-                            color: "#1a1a1a",
-                            padding: "0 1px",
-                          }}
-                          dangerouslySetInnerHTML={
-                            fontLoadedForPage
-                              ? { __html: word.codeV2 }
-                              : undefined
-                          }
-                        >
-                          {!fontLoadedForPage ? word.textQpcHafs : undefined}
-                        </span>
-                      );
-                    })}
-                  </div>
-                ))}
+                <div
+                  className="h-2"
+                  style={{
+                    background:
+                      "linear-gradient(to right, #C9A84C, #1B6B4A, #C9A84C)",
+                  }}
+                />
               </div>
-
-              <div
-                className="h-2"
-                style={{
-                  background:
-                    "linear-gradient(to right, #C9A84C, #1B6B4A, #C9A84C)",
-                }}
-              />
-            </div>
-          )}
+            )}
+          </div>
         </div>
+
+        <ReciterPanel
+          isOpen={reciterPanelOpen}
+          onClose={() => setReciterPanelOpen(false)}
+          onSelect={handleSelectReciter}
+          locale={locale}
+          selectedId={selectedReciter?.id}
+        />
       </div>
 
       {/* Audio player — fixed at bottom, always visible */}
@@ -645,12 +741,11 @@ export default function MushafViewer({ locale }: Props) {
         locale={locale}
         currentSurahId={currentSurahId ?? undefined}
       />
-      <ReciterPanel
-        isOpen={reciterPanelOpen}
-        onClose={() => setReciterPanelOpen(false)}
-        onSelect={handleSelectReciter}
+      <QuranSearchPanel
+        isOpen={searchPanelOpen}
+        onClose={() => setSearchPanelOpen(false)}
         locale={locale}
-        selectedId={selectedReciter?.id}
+        onNavigate={handleSearchNavigate}
       />
 
       {/* Memorization dialog */}
