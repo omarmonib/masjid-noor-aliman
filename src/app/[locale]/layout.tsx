@@ -20,6 +20,10 @@ const amiri = Amiri({
 });
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
+// themeColor (and other viewport-level settings) must live in a dedicated
+// `viewport` export in Next.js 14 App Router — putting it inside `metadata`
+// still works today but logs the "Unsupported metadata themeColor" warning
+// on every request and will be a hard error in a future Next.js major.
 export const viewport: Viewport = {
   themeColor: "#1B6B4A",
 };
@@ -28,7 +32,6 @@ export const metadata: Metadata = {
   title: "مسجد نور الإيمان",
   description: "الموقع الرسمي لمسجد نور الإيمان - بلبيس",
   manifest: "/manifest.json",
-  themeColor: "#1B6B4A",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

@@ -13,14 +13,26 @@ export interface QuranSearchResult extends QuranVerseIndexEntry {
 /**
  * Strips diacritics (tashkeel) and normalizes letter variants that people
  * routinely skip/confuse when typing Arabic search queries:
- *   أ إ آ ا → ا      ى → ي      ة → ه
+ *   أ إ آ ا ٱ → ا      ى → ي      ة → ه
  * Also collapses tatweel and repeated whitespace.
+ *
+ * IMPORTANT: the dagger alif (ٰ U+0670) is handled specially. In Quranic
+ * orthography it isn't a vowel mark — it represents a real alif letter
+ * that was historically omitted from the written word (e.g. the "ا" in
+ * "هَـٰذَا" or the second alif in "يَـٰٓأَيُّهَا"). Stripping it like an
+ * ordinary diacritic silently deletes a letter and breaks any prefix/exact
+ * match against normally-spelled Arabic (e.g. "يا أيها" would never match
+ * the Uthmani "يَـٰٓأَيُّهَا" because the letter count differs). So it must
+ * be converted to "ا", not removed, and this has to happen BEFORE the
+ * general diacritic-strip step below (which still removes the other
+ * Quranic marks in that range, just not \u0670).
  */
 export function normalizeArabic(text: string): string {
   return text
-    .replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, "") // tashkeel/quranic marks
+    .replace(/\u0670/g, "ا") // dagger alif → real alif letter
+    .replace(/[\u064B-\u065F\u06D6-\u06ED]/g, "") // remaining tashkeel/quranic marks
     .replace(/\u0640/g, "") // tatweel
-    .replace(/[إأآا]/g, "ا")
+    .replace(/[إأآاٱ]/g, "ا")
     .replace(/ى/g, "ي")
     .replace(/ة/g, "ه")
     .replace(/\s+/g, " ")

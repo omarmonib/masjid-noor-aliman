@@ -210,6 +210,27 @@ function skipTrailingGreeting(text: string, index: number): number {
   return i;
 }
 
+// ── Reference / citation detection ──
+//
+// Bug fixed here: this used to be a plain literal regex (e.g. checking for
+// the exact substring "رواه"), but real hadith text is fully diacritized
+// ("رَوَاهُ"), so it never matched — citations like "[رواه أبو داود]" were
+// left inside the emphasized matn instead of being split into the muted
+// reference line below it. Every trigger word is now run through the same
+// flexible() diacritic-tolerant builder used for NARRATION_PATTERNS above.
+// The leading "\[?" makes an opening bracket optional and applies to every
+// trigger uniformly, instead of being hardcoded only onto the "رقم:" case
+// like before — so a bracketed citation like "[رَوَاهُ أَبُو دَاوُدَ]" is
+// now caught starting at its own opening bracket, not partway through it.
+const REFERENCE_TRIGGERS = ["رواه", "أخرجه", "متفق عليه", "رقم:"];
+
+function buildReferencePattern(): RegExp {
+  const sources = REFERENCE_TRIGGERS.map((p) => flexible(p));
+  return new RegExp(`\\s*\\[?(?:${sources.join("|")})`);
+}
+
+const REFERENCE_PATTERN = buildReferencePattern();
+
 const DEBUG_HADITH_SPLIT =
   process.env.NODE_ENV !== "production" &&
   process.env.DEBUG_HADITH_SPLIT !== "0";
@@ -251,12 +272,7 @@ export function splitHadithNarration(text: string): HadithSplit | null {
   const splitAt = skipTrailingGreeting(text, bestEnd);
   const chain = text.slice(0, splitAt);
 
-  // بداية التخريج
- const refRegex =
-   /\s*(?:رواه|أخرجه|متفق عليه|رواه البخاري|رواه مسلم|رواه أبو داود|رواه الترمذي|رواه النسائي|رواه ابن ماجه|\[رقم:)/;
-
-  const refMatch = refRegex.exec(text.slice(splitAt));
-  
+  const refMatch = REFERENCE_PATTERN.exec(text.slice(splitAt));
 
   let content = text.slice(splitAt);
   let reference = "";
@@ -266,12 +282,17 @@ export function splitHadithNarration(text: string): HadithSplit | null {
     content = text.slice(splitAt, refStart).trimEnd();
     reference = text.slice(refStart).trimStart();
   }
-  
+
+  if (DEBUG_HADITH_SPLIT) {
+    console.log(
+      "[splitHadithNarration] reference matched:",
+      JSON.stringify(reference),
+    );
+  }
 
   return {
     chain,
     content,
     reference,
-    
   };
 }
