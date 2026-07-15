@@ -335,13 +335,6 @@ export default function MushafViewer({ locale }: Props) {
   // ── Fit width / height / screen ──
   const fitWidth = () => setAndPersistZoom(1);
 
-  const fitHeight = () => {
-    if (!scrollRef.current || !contentRef.current) return fitWidth();
-    const availableH = scrollRef.current.clientHeight - 32;
-    const contentH = contentRef.current.scrollHeight / zoom;
-    if (contentH > 0) setAndPersistZoom(availableH / contentH);
-  };
-
   const fitScreen = () => {
     if (!scrollRef.current || !contentRef.current) return fitWidth();
     const availableH = scrollRef.current.clientHeight - 32;
@@ -657,7 +650,7 @@ export default function MushafViewer({ locale }: Props) {
                 +
               </button>
               
-            
+              
               <button
                 onClick={fitScreen}
                 title={isAr ? "ملائمة الشاشة" : "Fit screen"}
