@@ -21,6 +21,7 @@ import {
   getPanelHiddenPref,
   setPanelHiddenPref,
 } from "@/lib/quran-panel-prefs";
+import { getFocusModePref, setFocusModePref } from "@/lib/quran-focus-prefs";
 import SurahPanel from "./SurahPanel";
 import ReciterPanel from "./ReciterPanel";
 import QuranSearchPanel from "./QuranSearchPanel";
@@ -31,6 +32,8 @@ import {
   PenLine,
   Search,
   Settings2,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 
 interface Props {
@@ -44,6 +47,16 @@ const RECITER_KEY = "quran:selected-reciter";
 const MIN_ZOOM = 0.6;
 const MAX_ZOOM = 2.5;
 const loadedFonts = new Set<string>();
+
+// Surah At-Tawbah (9) has no Bismillah per the standard Mushaf. Surah 1
+// (Al-Fatiha) already counts the Bismillah as its own Ayah 1, so inserting
+// a second copy there would duplicate it and shift nothing — but it'd look
+// wrong, so it's excluded too.
+const NO_BISMILLAH_SURAHS = new Set([1, 9]);
+const BISMILLAH_TEXT = "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ";
+
+// Controls auto-hide after this many ms of inactivity once revealed on mobile.
+const CONTROLS_HIDE_DELAY_MS = 3000;
 
 async function loadPageFont(page: number): Promise<void> {
   const fontName = `p${page}-v2`;
@@ -74,6 +87,33 @@ function readInitialZoom(): number {
   return stored >= MIN_ZOOM && stored <= MAX_ZOOM ? stored : 1;
 }
 
+/**
+ * Returns the set of line numbers on this page that should have a
+ * Bismillah banner rendered immediately above them — i.e. lines that carry
+ * the first word of Ayah 1 of a surah other than Al-Fatiha/At-Tawbah.
+ * Doesn't touch verseMeta/word data at all, so it can never affect verse
+ * numbering or word rendering — it's purely an extra visual line.
+ */
+function getBismillahLineNumbers(pageData: MushafPageData | null): Set<number> {
+  const result = new Set<number>();
+  if (!pageData) return result;
+
+  const seenSurahStarts = new Set<number>();
+  for (const meta of pageData.verseMeta) {
+    const [surahStr, ayahStr] = meta.verseKey.split(":");
+    const surahId = parseInt(surahStr, 10);
+    const ayah = parseInt(ayahStr, 10);
+    if (ayah !== 1) continue;
+    if (NO_BISMILLAH_SURAHS.has(surahId)) continue;
+    if (seenSurahStarts.has(surahId)) continue;
+    seenSurahStarts.add(surahId);
+
+    const firstWord = pageData.words.find((w) => w.verseKey === meta.verseKey);
+    if (firstWord) result.add(firstWord.lineNumber);
+  }
+  return result;
+}
+
 export default function MushafViewer({ locale }: Props) {
   const isAr = locale === "ar";
   const [pageNumber, setPageNumber] = useState(1);
@@ -83,6 +123,68 @@ export default function MushafViewer({ locale }: Props) {
   const [zoom, setZoom] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [surahPanelOpen, setSurahPanelOpen] = useState(false);
+
+  // ── Reading Focus Mode ──
+  // `focusMode` is the persisted on/off state. `controlsVisible` is a
+  // separate, transient layer: on mobile, tapping the page while focused
+  // temporarily shows controls again, then they auto-hide. On desktop the
+  // toolbar toggle button itself stays reachable via a small always-visible
+  // exit affordance instead of tap-to-reveal, since there's no touch tap.
+  const [focusMode, setFocusMode] = useState(false);
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const hideTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    setFocusMode(getFocusModePref());
+  }, []);
+
+  const clearHideTimer = useCallback(() => {
+    if (hideTimerRef.current) {
+      window.clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleAutoHide = useCallback(() => {
+    clearHideTimer();
+    hideTimerRef.current = window.setTimeout(() => {
+      setControlsVisible(false);
+    }, CONTROLS_HIDE_DELAY_MS);
+  }, [clearHideTimer]);
+
+  const enterFocusMode = useCallback(() => {
+    setFocusMode(true);
+    setFocusModePref(true);
+    setControlsVisible(false);
+    clearHideTimer();
+  }, [clearHideTimer]);
+
+  const exitFocusMode = useCallback(() => {
+    setFocusMode(false);
+    setFocusModePref(false);
+    setControlsVisible(true);
+    clearHideTimer();
+  }, [clearHideTimer]);
+
+  const toggleFocusMode = useCallback(() => {
+    if (focusMode) exitFocusMode();
+    else enterFocusMode();
+  }, [focusMode, enterFocusMode, exitFocusMode]);
+
+  // Tapping the reading area while focused reveals controls briefly, then
+  // hides them again — doesn't fire on every scroll/zoom gesture, only a
+  // plain tap/click, so it won't fight with pinch-zoom or line taps.
+  const handleReadingAreaTap = useCallback(() => {
+    if (!focusMode) return;
+    setControlsVisible((v) => {
+      const next = !v;
+      if (next) scheduleAutoHide();
+      else clearHideTimer();
+      return next;
+    });
+  }, [focusMode, scheduleAutoHide, clearHideTimer]);
+
+  useEffect(() => clearHideTimer, [clearHideTimer]);
 
   // ── Settings (reciter) panel ──
   // Desktop: always mounted, docked, and visibility is purely a CSS
@@ -258,9 +360,16 @@ export default function MushafViewer({ locale }: Props) {
       if (tag === "INPUT" || tag === "TEXTAREA") return;
 
       switch (e.key) {
+        case "Escape":
+          if (focusMode) exitFocusMode();
+          break;
         case "f":
         case "F":
           toggleFullscreen();
+          break;
+        case "z":
+        case "Z":
+          toggleFocusMode();
           break;
         case "s":
         case "S":
@@ -306,6 +415,9 @@ export default function MushafViewer({ locale }: Props) {
     toggleFullscreen,
     setAndPersistZoom,
     toggleSettingsPanel,
+    focusMode,
+    exitFocusMode,
+    toggleFocusMode,
   ]);
 
   // ── Touch gestures: swipe, pinch, double-tap ──
@@ -351,6 +463,10 @@ export default function MushafViewer({ locale }: Props) {
     if (Math.abs(dx) < 10 && Math.abs(dy) < 10) {
       if (now - lastTapTime.current < 300) {
         setAndPersistZoom(1);
+      } else {
+        // Single tap (not part of a double-tap) — in Focus Mode this is
+        // the mobile reveal/hide gesture.
+        handleReadingAreaTap();
       }
       lastTapTime.current = now;
     } else if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
@@ -468,6 +584,8 @@ export default function MushafViewer({ locale }: Props) {
     .sort(([a], [b]) => a - b)
     .map(([key, words]) => ({ key, words }));
 
+  const bismillahLines = getBismillahLineNumbers(pageData);
+
   const currentSurahId = pageData?.surahIds[0] ?? null;
   const currentSurahName = currentSurahId
     ? SURAH_NAMES_AR[currentSurahId - 1]
@@ -476,163 +594,188 @@ export default function MushafViewer({ locale }: Props) {
   const firstMeta = pageData?.verseMeta[0];
   const fontLoadedForPage = fontReady && loadedFonts.has(`p${pageNumber}-v2`);
 
+  // Chrome (toolbar, page nav, audio player) is shown unless Focus Mode is
+  // on and controls have auto-hidden/not been revealed.
+  const chromeVisible = !focusMode || controlsVisible;
+
   return (
     <div ref={containerRef} className="h-screen bg-[#1a1a1a] flex flex-col">
-      {/* Toolbar — fixed, never scrolls, never disappears */}
-      <div className="flex-shrink-0 bg-[#111] border-b border-white/10 px-3 py-2.5 z-40">
-        <div className="max-w-3xl mx-auto flex items-center justify-between gap-2 flex-wrap">
-          <button
-            onClick={() => setSurahPanelOpen(true)}
-            className="bg-white/10 hover:bg-white/20 text-white font-arabic px-3 py-1.5 rounded-lg text-sm flex items-center gap-2"
-          >
-            <span>{currentSurahName || "…"}</span>
-            <span className="text-white/40 text-xs">▾</span>
-          </button>
-
-          <div className="flex items-center gap-1 flex-wrap">
+      {/* Toolbar — fixed, hidden entirely in Focus Mode once controls hide */}
+      {chromeVisible && (
+        <div className="flex-shrink-0 bg-[#111] border-b border-white/10 px-3 py-2.5 z-40 transition-opacity duration-200">
+          <div className="max-w-3xl mx-auto flex items-center justify-between gap-2 flex-wrap">
             <button
-              onClick={handleSaveReadingBookmark}
-              title={isAr ? "حفظ علامة القراءة" : "Save reading bookmark"}
-              className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+              onClick={() => setSurahPanelOpen(true)}
+              className="bg-white/10 hover:bg-white/20 text-white font-arabic px-3 py-1.5 rounded-lg text-sm flex items-center gap-2"
             >
-              {readingSaved ? (
-                <BookmarkCheck size={15} className="text-[#C9A84C]" />
-              ) : (
-                <Bookmark size={15} />
-              )}
-            </button>
-            <button
-              onClick={handleContinueReading}
-              title={isAr ? "متابعة القراءة" : "Continue reading"}
-              className="px-2 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white/80 text-xs font-arabic"
-            >
-              {isAr ? "متابعة" : "Continue"}
-            </button>
-            <button
-              onClick={openMemoDialog}
-              title={isAr ? "علامة الحفظ" : "Memorization bookmark"}
-              className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
-            >
-              <PenLine size={15} />
+              <span>{currentSurahName || "…"}</span>
+              <span className="text-white/40 text-xs">▾</span>
             </button>
 
-            <span className="w-px h-5 bg-white/10 mx-0.5" />
+            <div className="flex items-center gap-1 flex-wrap">
+              <button
+                onClick={handleSaveReadingBookmark}
+                title={isAr ? "حفظ علامة القراءة" : "Save reading bookmark"}
+                className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+              >
+                {readingSaved ? (
+                  <BookmarkCheck size={15} className="text-[#C9A84C]" />
+                ) : (
+                  <Bookmark size={15} />
+                )}
+              </button>
+              <button
+                onClick={handleContinueReading}
+                title={isAr ? "متابعة القراءة" : "Continue reading"}
+                className="px-2 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white/80 text-xs font-arabic"
+              >
+                {isAr ? "متابعة" : "Continue"}
+              </button>
+              <button
+                onClick={openMemoDialog}
+                title={isAr ? "علامة الحفظ" : "Memorization bookmark"}
+                className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+              >
+                <PenLine size={15} />
+              </button>
 
-            <button
-              onClick={() => setAndPersistZoom(zoom - 0.1)}
-              className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm flex items-center justify-center"
-            >
-              −
-            </button>
-            <span className="px-1 text-white/60 text-xs font-mono w-11 text-center">
-              {Math.round(zoom * 100)}%
-            </span>
-            <button
-              onClick={() => setAndPersistZoom(zoom + 0.1)}
-              className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm flex items-center justify-center"
-            >
-              +
-            </button>
-            <button
-              onClick={fitWidth}
-              title={isAr ? "ملائمة العرض" : "Fit width"}
-              className="px-2 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 text-xs font-arabic"
-            >
-              {isAr ? "العرض" : "Width"}
-            </button>
-            <button
-              onClick={fitHeight}
-              title={isAr ? "ملائمة الارتفاع" : "Fit height"}
-              className="px-2 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 text-xs font-arabic"
-            >
-              {isAr ? "الارتفاع" : "Height"}
-            </button>
-            <button
-              onClick={fitScreen}
-              title={isAr ? "ملائمة الشاشة" : "Fit screen"}
-              className="px-2 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 text-xs font-arabic"
-            >
-              {isAr ? "الشاشة" : "Screen"}
-            </button>
-            <button
-              onClick={toggleFullscreen}
-              title={isAr ? "ملء الشاشة (F)" : "Fullscreen (F)"}
-              className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm flex items-center justify-center"
-            >
-              {isFullscreen ? "⤢" : "⛶"}
-            </button>
+              <span className="w-px h-5 bg-white/10 mx-0.5" />
 
-            <span className="w-px h-5 bg-white/10 mx-0.5" />
-
-            <button
-              onClick={() => setSearchPanelOpen(true)}
-              title={isAr ? "بحث في القرآن" : "Search Quran"}
-              className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
-            >
-              <Search size={15} />
-            </button>
-            <button
-              onClick={toggleSettingsPanel}
-              title={
-                isAr ? "إظهار/إخفاء الإعدادات (S)" : "Show/hide settings (S)"
-              }
-              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-                settingsPanelVisible
-                  ? "bg-[#C9A84C]/20 text-[#C9A84C]"
-                  : "bg-white/10 hover:bg-white/20 text-white"
-              }`}
-            >
-              <Settings2 size={15} />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Page nav — fixed, always visible regardless of zoom */}
-      <div className="flex-shrink-0 bg-[#161616] border-b border-white/5 px-3 py-2 z-30">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <button
-            onClick={() => goToPage(pageNumber - 1)}
-            disabled={pageNumber <= 1}
-            className="px-4 py-1.5 bg-white/10 hover:bg-white/20 text-white font-arabic rounded-xl disabled:opacity-30 transition-colors text-sm"
-          >
-            {isAr ? "‹ السابقة" : "‹ Prev"}
-          </button>
-
-          <div className="text-center">
-            <span className="text-white/70 font-arabic text-sm block">
-              {isAr ? `صفحة ${pageNumber}` : `Page ${pageNumber}`}
-            </span>
-            {firstMeta && (
-              <span className="text-white/30 font-arabic text-xs block">
-                {isAr
-                  ? `جزء ${firstMeta.juzNumber} · حزب ${firstMeta.hizbNumber}`
-                  : `Juz ${firstMeta.juzNumber} · Hizb ${firstMeta.hizbNumber}`}
-                {hasSajdah && <> · {isAr ? "۩ سجدة" : "۩ Sajdah"}</>}
+              <button
+                onClick={() => setAndPersistZoom(zoom - 0.1)}
+                className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm flex items-center justify-center"
+              >
+                −
+              </button>
+              <span className="px-1 text-white/60 text-xs font-mono w-11 text-center">
+                {Math.round(zoom * 100)}%
               </span>
-            )}
-          </div>
+              <button
+                onClick={() => setAndPersistZoom(zoom + 0.1)}
+                className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm flex items-center justify-center"
+              >
+                +
+              </button>
+              <button
+                onClick={fitWidth}
+                title={isAr ? "ملائمة العرض" : "Fit width"}
+                className="px-2 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 text-xs font-arabic"
+              >
+                {isAr ? "العرض" : "Width"}
+              </button>
+              <button
+                onClick={fitHeight}
+                title={isAr ? "ملائمة الارتفاع" : "Fit height"}
+                className="px-2 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 text-xs font-arabic"
+              >
+                {isAr ? "الارتفاع" : "Height"}
+              </button>
+              <button
+                onClick={fitScreen}
+                title={isAr ? "ملائمة الشاشة" : "Fit screen"}
+                className="px-2 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 text-xs font-arabic"
+              >
+                {isAr ? "الشاشة" : "Screen"}
+              </button>
+              <button
+                onClick={toggleFullscreen}
+                title={isAr ? "ملء الشاشة (F)" : "Fullscreen (F)"}
+                className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm flex items-center justify-center"
+              >
+                {isFullscreen ? "⤢" : "⛶"}
+              </button>
 
-          <button
-            onClick={() => goToPage(pageNumber + 1)}
-            disabled={pageNumber >= TOTAL_MUSHAF_PAGES}
-            className="px-4 py-1.5 bg-white/10 hover:bg-white/20 text-white font-arabic rounded-xl disabled:opacity-30 transition-colors text-sm"
-          >
-            {isAr ? "التالية ›" : "Next ›"}
-          </button>
+              <span className="w-px h-5 bg-white/10 mx-0.5" />
+
+              <button
+                onClick={() => setSearchPanelOpen(true)}
+                title={isAr ? "بحث في القرآن" : "Search Quran"}
+                className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+              >
+                <Search size={15} />
+              </button>
+              <button
+                onClick={toggleSettingsPanel}
+                title={
+                  isAr ? "إظهار/إخفاء الإعدادات (S)" : "Show/hide settings (S)"
+                }
+                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                  settingsPanelVisible
+                    ? "bg-[#C9A84C]/20 text-[#C9A84C]"
+                    : "bg-white/10 hover:bg-white/20 text-white"
+                }`}
+              >
+                <Settings2 size={15} />
+              </button>
+              <button
+                onClick={enterFocusMode}
+                title={
+                  isAr ? "وضع القراءة المركّز (Z)" : "Reading Focus Mode (Z)"
+                }
+                className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+              >
+                <Maximize2 size={15} />
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Page nav — hidden with the rest of the chrome in Focus Mode */}
+      {chromeVisible && (
+        <div className="flex-shrink-0 bg-[#161616] border-b border-white/5 px-3 py-2 z-30 transition-opacity duration-200">
+          <div className="max-w-3xl mx-auto flex items-center justify-between">
+            <button
+              onClick={() => goToPage(pageNumber - 1)}
+              disabled={pageNumber <= 1}
+              className="px-4 py-1.5 bg-white/10 hover:bg-white/20 text-white font-arabic rounded-xl disabled:opacity-30 transition-colors text-sm"
+            >
+              {isAr ? "‹ السابقة" : "‹ Prev"}
+            </button>
+
+            <div className="text-center">
+              <span className="text-white/70 font-arabic text-sm block">
+                {isAr ? `صفحة ${pageNumber}` : `Page ${pageNumber}`}
+              </span>
+              {firstMeta && (
+                <span className="text-white/30 font-arabic text-xs block">
+                  {isAr
+                    ? `جزء ${firstMeta.juzNumber} · حزب ${firstMeta.hizbNumber}`
+                    : `Juz ${firstMeta.juzNumber} · Hizb ${firstMeta.hizbNumber}`}
+                  {hasSajdah && <> · {isAr ? "۩ سجدة" : "۩ Sajdah"}</>}
+                </span>
+              )}
+            </div>
+
+            <button
+              onClick={() => goToPage(pageNumber + 1)}
+              disabled={pageNumber >= TOTAL_MUSHAF_PAGES}
+              className="px-4 py-1.5 bg-white/10 hover:bg-white/20 text-white font-arabic rounded-xl disabled:opacity-30 transition-colors text-sm"
+            >
+              {isAr ? "التالية ›" : "Next ›"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Scrollable, zoomable Mushaf area + docked settings panel — the
          Mushaf column always takes whatever width the (possibly
          collapsed-to-zero) panel isn't using. */}
-      <div className="flex-1 flex min-h-0">
+      <div className="flex-1 flex min-h-0 relative">
         <div
           ref={scrollRef}
           className="flex-1 min-w-0 overflow-auto px-4 py-6 pb-28"
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
+          onClick={(e) => {
+            // Desktop click-to-reveal mirrors the mobile tap gesture, but
+            // only when clicking empty space (not a word/button), so word
+            // taps for verse selection keep working normally.
+            if (focusMode && e.target === e.currentTarget) {
+              handleReadingAreaTap();
+            }
+          }}
         >
           <div className="max-w-3xl mx-auto">
             {loading ? (
@@ -681,67 +824,87 @@ export default function MushafViewer({ locale }: Props) {
                   }}
                 >
                   {lines.map(({ key, words }) => (
-                    <div
-                      key={key}
-                      className="flex justify-center items-baseline flex-wrap"
-                      style={{ minHeight: "48px", marginBottom: "4px" }}
-                    >
-                      {words.map((word) => {
-                        const isEnd = word.charTypeName === "end";
-                        const isActive = word.verseKey === activeVerseKey;
-                        const isSearchHit =
-                          word.verseKey === searchHighlightKey;
+                    <div key={key}>
+                      {bismillahLines.has(key) && (
+                        <div
+                          className="flex justify-center items-center"
+                          style={{ minHeight: "40px", marginBottom: "6px" }}
+                        >
+                          <span
+                            style={{
+                              fontFamily:
+                                "'UthmanicHafs1Ver18', 'Amiri Quran', serif",
+                              fontSize: "clamp(16px, 4vw, 26px)",
+                              color: "#1B6B4A",
+                            }}
+                          >
+                            {BISMILLAH_TEXT}
+                          </span>
+                        </div>
+                      )}
+                      <div
+                        className="flex justify-center items-baseline flex-wrap"
+                        style={{ minHeight: "48px", marginBottom: "4px" }}
+                      >
+                        {words.map((word) => {
+                          const isEnd = word.charTypeName === "end";
+                          const isActive = word.verseKey === activeVerseKey;
+                          const isSearchHit =
+                            word.verseKey === searchHighlightKey;
 
-                        if (isEnd) {
+                          if (isEnd) {
+                            return (
+                              <span
+                                key={word.id}
+                                data-verse-key={word.verseKey}
+                                style={{
+                                  fontFamily:
+                                    "'UthmanicHafs1Ver18', 'Amiri Quran', serif",
+                                  fontSize: "clamp(12px, 4.5vw, 28px)",
+                                  color: "#C9A84C",
+                                  margin: "0 2px",
+                                }}
+                              >
+                                {word.textQpcHafs}
+                              </span>
+                            );
+                          }
+
                           return (
                             <span
                               key={word.id}
                               data-verse-key={word.verseKey}
+                              onClick={() => setActiveVerseKey(word.verseKey)}
+                              title={word.verseKey}
+                              className={`cursor-pointer rounded transition-colors ${
+                                isSearchHit
+                                  ? "bg-[#C9A84C]/40 ring-2 ring-[#C9A84C] animate-pulse"
+                                  : isActive
+                                    ? "bg-[#C9A84C]/25"
+                                    : "hover:bg-primary/10"
+                              }`}
                               style={{
-                                fontFamily:
-                                  "'UthmanicHafs1Ver18', 'Amiri Quran', serif",
-                                fontSize: "clamp(12px, 4.5vw, 28px)",
-                                color: "#C9A84C",
-                                margin: "0 2px",
+                                fontFamily: fontLoadedForPage
+                                  ? `p${word.pageNumber}-v2`
+                                  : "'UthmanicHafs1Ver18', 'Amiri Quran', serif",
+                                fontSize: "clamp(14px, 4vw, 32px)",
+                                lineHeight: "2.2",
+                                color: "#1a1a1a",
+                                padding: "0 1px",
                               }}
+                              dangerouslySetInnerHTML={
+                                fontLoadedForPage
+                                  ? { __html: word.codeV2 }
+                                  : undefined
+                              }
                             >
-                              {word.textQpcHafs}
+                              {!fontLoadedForPage
+                                ? word.textQpcHafs
+                                : undefined}
                             </span>
                           );
-                        }
-
-                        return (
-                          <span
-                            key={word.id}
-                            data-verse-key={word.verseKey}
-                            onClick={() => setActiveVerseKey(word.verseKey)}
-                            title={word.verseKey}
-                            className={`cursor-pointer rounded transition-colors ${
-                              isSearchHit
-                                ? "bg-[#C9A84C]/40 ring-2 ring-[#C9A84C] animate-pulse"
-                                : isActive
-                                  ? "bg-[#C9A84C]/25"
-                                  : "hover:bg-primary/10"
-                            }`}
-                            style={{
-                              fontFamily: fontLoadedForPage
-                                ? `p${word.pageNumber}-v2`
-                                : "'UthmanicHafs1Ver18', 'Amiri Quran', serif",
-                              fontSize: "clamp(14px, 4vw, 32px)",
-                              lineHeight: "2.2",
-                              color: "#1a1a1a",
-                              padding: "0 1px",
-                            }}
-                            dangerouslySetInnerHTML={
-                              fontLoadedForPage
-                                ? { __html: word.codeV2 }
-                                : undefined
-                            }
-                          >
-                            {!fontLoadedForPage ? word.textQpcHafs : undefined}
-                          </span>
-                        );
-                      })}
+                        })}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -758,29 +921,50 @@ export default function MushafViewer({ locale }: Props) {
           </div>
         </div>
 
-        <ReciterPanel
-          isOpen={reciterPanelOpen}
-          onClose={handlePanelClose}
-          onSelect={handleSelectReciter}
-          locale={locale}
-          selectedId={selectedReciter?.id}
-          collapsed={panelHidden}
-        />
+        {chromeVisible && (
+          <ReciterPanel
+            isOpen={reciterPanelOpen}
+            onClose={handlePanelClose}
+            onSelect={handleSelectReciter}
+            locale={locale}
+            selectedId={selectedReciter?.id}
+            collapsed={panelHidden}
+          />
+        )}
+
+        {/* Focus Mode exit affordance — a small, always-tappable pill so
+           there's never a dead end even before the reveal-tap timer fires
+           for the first time. */}
+        {focusMode && (
+          <button
+            onClick={exitFocusMode}
+            title={
+              isAr ? "إنهاء وضع القراءة المركّز (Esc)" : "Exit Focus Mode (Esc)"
+            }
+            className="absolute top-3 inset-x-0 mx-auto w-fit flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 hover:bg-black/60 text-white/70 hover:text-white text-xs font-arabic backdrop-blur-sm transition-all z-50"
+            style={{ opacity: chromeVisible ? 1 : 0.35 }}
+          >
+            <Minimize2 size={12} />
+            {isAr ? "إنهاء وضع التركيز" : "Exit Focus"}
+          </button>
+        )}
       </div>
 
-      {/* Audio player — fixed at bottom, always visible */}
-      <AudioPlayer
-        locale={locale}
-        pageWords={pageData?.words ?? []}
-        activeVerseKey={activeVerseKey}
-        currentSurahId={currentSurahId}
-        selectedReciter={selectedReciter}
-        onOpenReciterPanel={openSettingsPanel}
-        onNextPage={() => goToPage(pageNumber + 1)}
-        onPrevPage={() => goToPage(pageNumber - 1)}
-        onVerseChange={setActiveVerseKey}
-        cdnBase={CDN}
-      />
+      {/* Audio player — hidden in Focus Mode along with the rest of the chrome */}
+      {chromeVisible && (
+        <AudioPlayer
+          locale={locale}
+          pageWords={pageData?.words ?? []}
+          activeVerseKey={activeVerseKey}
+          currentSurahId={currentSurahId}
+          selectedReciter={selectedReciter}
+          onOpenReciterPanel={openSettingsPanel}
+          onNextPage={() => goToPage(pageNumber + 1)}
+          onPrevPage={() => goToPage(pageNumber - 1)}
+          onVerseChange={setActiveVerseKey}
+          cdnBase={CDN}
+        />
+      )}
       <button id="quran-audio-toggle" className="hidden" aria-hidden />
 
       <SurahPanel
