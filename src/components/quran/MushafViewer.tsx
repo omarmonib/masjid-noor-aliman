@@ -656,20 +656,8 @@ export default function MushafViewer({ locale }: Props) {
               >
                 +
               </button>
-              <button
-                onClick={fitWidth}
-                title={isAr ? "ملائمة العرض" : "Fit width"}
-                className="px-2 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 text-xs font-arabic"
-              >
-                {isAr ? "العرض" : "Width"}
-              </button>
-              <button
-                onClick={fitHeight}
-                title={isAr ? "ملائمة الارتفاع" : "Fit height"}
-                className="px-2 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 text-xs font-arabic"
-              >
-                {isAr ? "الارتفاع" : "Height"}
-              </button>
+              
+            
               <button
                 onClick={fitScreen}
                 title={isAr ? "ملائمة الشاشة" : "Fit screen"}
