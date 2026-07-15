@@ -17,6 +17,10 @@ import {
 } from "@/lib/quran-bookmarks";
 import type { ReciterMoshaf } from "@/lib/reciters";
 import { useIsDesktop } from "@/hooks/useIsDesktop";
+import {
+  getPanelHiddenPref,
+  setPanelHiddenPref,
+} from "@/lib/quran-panel-prefs";
 import SurahPanel from "./SurahPanel";
 import ReciterPanel from "./ReciterPanel";
 import QuranSearchPanel from "./QuranSearchPanel";
@@ -80,14 +84,50 @@ export default function MushafViewer({ locale }: Props) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [surahPanelOpen, setSurahPanelOpen] = useState(false);
 
-  // ── Responsive settings (reciter) panel: docked & visible by default on
-  // desktop, hidden by default on mobile/narrow screens, and re-synced
-  // automatically whenever the viewport crosses the desktop breakpoint. ──
+  // ── Settings (reciter) panel ──
+  // Desktop: always mounted, docked, and visibility is purely a CSS
+  // collapse driven by `panelHidden` — this is the distraction-free
+  // toggle, remembered for the session via sessionStorage.
+  // Mobile: a real overlay drawer, opened/closed via `reciterPanelOpen`.
   const isDesktopPanel = useIsDesktop(1024);
+  const [panelHidden, setPanelHidden] = useState(false);
   const [reciterPanelOpen, setReciterPanelOpen] = useState(false);
+
   useEffect(() => {
-    setReciterPanelOpen(isDesktopPanel);
+    setPanelHidden(getPanelHiddenPref());
+  }, []);
+
+  const openSettingsPanel = useCallback(() => {
+    if (isDesktopPanel) {
+      setPanelHidden(false);
+      setPanelHiddenPref(false);
+    } else {
+      setReciterPanelOpen(true);
+    }
   }, [isDesktopPanel]);
+
+  const handlePanelClose = useCallback(() => {
+    if (isDesktopPanel) {
+      setPanelHidden(true);
+      setPanelHiddenPref(true);
+    } else {
+      setReciterPanelOpen(false);
+    }
+  }, [isDesktopPanel]);
+
+  const toggleSettingsPanel = useCallback(() => {
+    if (isDesktopPanel) {
+      setPanelHidden((prev) => {
+        const next = !prev;
+        setPanelHiddenPref(next);
+        return next;
+      });
+    } else {
+      setReciterPanelOpen((prev) => !prev);
+    }
+  }, [isDesktopPanel]);
+
+  const settingsPanelVisible = isDesktopPanel ? !panelHidden : reciterPanelOpen;
 
   // ── Quran search ──
   const [searchPanelOpen, setSearchPanelOpen] = useState(false);
@@ -222,6 +262,10 @@ export default function MushafViewer({ locale }: Props) {
         case "F":
           toggleFullscreen();
           break;
+        case "s":
+        case "S":
+          toggleSettingsPanel();
+          break;
         case "ArrowRight":
           if (isAr) {
             goToPage(pageNumber - 1);
@@ -254,7 +298,15 @@ export default function MushafViewer({ locale }: Props) {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [pageNumber, zoom, isAr, goToPage, toggleFullscreen, setAndPersistZoom]);
+  }, [
+    pageNumber,
+    zoom,
+    isAr,
+    goToPage,
+    toggleFullscreen,
+    setAndPersistZoom,
+    toggleSettingsPanel,
+  ]);
 
   // ── Touch gestures: swipe, pinch, double-tap ──
   const onTouchStart = (e: React.TouchEvent) => {
@@ -295,16 +347,13 @@ export default function MushafViewer({ locale }: Props) {
     const dx = endX - touchStartX.current;
     const dy = endY - touchStartY.current;
 
-    // Double tap → reset zoom
     const now = Date.now();
     if (Math.abs(dx) < 10 && Math.abs(dy) < 10) {
       if (now - lastTapTime.current < 300) {
         setAndPersistZoom(1);
       }
       lastTapTime.current = now;
-    }
-    // Swipe (horizontal dominant, minimal vertical drift so it doesn't fight scroll)
-    else if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+    } else if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
       if (dx < 0) {
         if (isAr) {
           goToPage(pageNumber - 1);
@@ -333,8 +382,8 @@ export default function MushafViewer({ locale }: Props) {
   const handleSelectReciter = (m: ReciterMoshaf) => {
     setSelectedReciter(m);
     localStorage.setItem(RECITER_KEY, JSON.stringify(m));
-    // Mobile/narrow drawer closes after picking; desktop stays docked open.
-    if (!isDesktopPanel) setReciterPanelOpen(false);
+    // ReciterPanel itself closes the mobile drawer after a pick; the
+    // desktop dock stays open since it never blocks reading width.
   };
 
   const handleSearchNavigate = (page: number, verseKey: string) => {
@@ -357,8 +406,6 @@ export default function MushafViewer({ locale }: Props) {
     };
   }, []);
 
-  // Once the target page has finished loading, scroll the searched verse
-  // into view.
   useEffect(() => {
     if (!searchHighlightKey || loading) return;
     const el = document.querySelector(
@@ -525,10 +572,12 @@ export default function MushafViewer({ locale }: Props) {
               <Search size={15} />
             </button>
             <button
-              onClick={() => setReciterPanelOpen((v) => !v)}
-              title={isAr ? "إعدادات القارئ" : "Reciter settings"}
+              onClick={toggleSettingsPanel}
+              title={
+                isAr ? "إظهار/إخفاء الإعدادات (S)" : "Show/hide settings (S)"
+              }
               className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-                reciterPanelOpen
+                settingsPanelVisible
                   ? "bg-[#C9A84C]/20 text-[#C9A84C]"
                   : "bg-white/10 hover:bg-white/20 text-white"
               }`}
@@ -574,9 +623,9 @@ export default function MushafViewer({ locale }: Props) {
         </div>
       </div>
 
-      {/* Scrollable, zoomable Mushaf area — wrapped together with the docked
-         reciter panel so the panel takes its own column width and the
-         Mushaf always keeps the maximum remaining reading area. */}
+      {/* Scrollable, zoomable Mushaf area + docked settings panel — the
+         Mushaf column always takes whatever width the (possibly
+         collapsed-to-zero) panel isn't using. */}
       <div className="flex-1 flex min-h-0">
         <div
           ref={scrollRef}
@@ -711,10 +760,11 @@ export default function MushafViewer({ locale }: Props) {
 
         <ReciterPanel
           isOpen={reciterPanelOpen}
-          onClose={() => setReciterPanelOpen(false)}
+          onClose={handlePanelClose}
           onSelect={handleSelectReciter}
           locale={locale}
           selectedId={selectedReciter?.id}
+          collapsed={panelHidden}
         />
       </div>
 
@@ -725,13 +775,12 @@ export default function MushafViewer({ locale }: Props) {
         activeVerseKey={activeVerseKey}
         currentSurahId={currentSurahId}
         selectedReciter={selectedReciter}
-        onOpenReciterPanel={() => setReciterPanelOpen(true)}
+        onOpenReciterPanel={openSettingsPanel}
         onNextPage={() => goToPage(pageNumber + 1)}
         onPrevPage={() => goToPage(pageNumber - 1)}
         onVerseChange={setActiveVerseKey}
         cdnBase={CDN}
       />
-      {/* hidden button so the Space-bar shortcut can trigger AudioPlayer's own toggle without prop drilling a ref */}
       <button id="quran-audio-toggle" className="hidden" aria-hidden />
 
       <SurahPanel

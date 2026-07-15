@@ -93,7 +93,6 @@ export const COLLECTIONS: HadithCollection[] = [
     totalHadith: 1597,
     icon: "⚖️",
   },
-  
 ];
 
 export async function getDailyHadithData(): Promise<Hadith | null> {
@@ -121,4 +120,158 @@ export async function getDailyHadithData(): Promise<Hadith | null> {
   } catch {
     return null;
   }
+}
+
+// ── Narration-chain / Prophet's-words split (for visual styling) ──
+
+export interface HadithSplit {
+  chain: string;
+  content: string;
+  reference: string;
+}
+
+// Arabic diacritics (tashkeel), Quranic annotation marks, and tatweel —
+// optional between letters in real hadith text (which is normally fully
+// vocalized), so every trigger phrase must tolerate them.
+const DIACRITIC_CLASS = "\\u064B-\\u065F\\u0670\\u06D6-\\u06ED\\u0640";
+
+/** Turns a plain literal phrase into a diacritic-tolerant regex source. */
+function flexible(literal: string): string {
+  return Array.from(literal)
+    .map((ch) => {
+      if (ch === " ") return "\\s+";
+      if (ch === "ا") return `[اأإآ][${DIACRITIC_CLASS}]*`;
+      if (ch === "ى") return `[ىي][${DIACRITIC_CLASS}]*`;
+      if (ch === "ة") return `[ةه][${DIACRITIC_CLASS}]*`;
+      const escaped = ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return `${escaped}[${DIACRITIC_CLASS}]*`;
+    })
+    .join("");
+}
+
+const REPORTING_VERBS = ["قال", "قالت", "يقول", "تقول"];
+const PROPHET_MARKERS = ["رسول الله", "النبي"];
+
+// A bounded, non-greedy "anything" gap. This is the actual fix: earlier
+// code tried to hard-code the exact salutation phrase between the marker
+// and the verb ("صلى الله عليه وسلم"), but wrote it as a plain literal
+// instead of running it through flexible(). Real hadith text is fully
+// diacritized, so that literal never matched, the optional group silently
+// contributed nothing, and the surrounding pattern then required the verb
+// to sit immediately (whitespace-only) next to the marker — which it
+// never does, since the salutation phrase sits in between. Net effect:
+// every pattern failed silently and splitHadithNarration always returned
+// null. A bounded wildcard sidesteps needing to enumerate every possible
+// salutation spelling/punctuation combination.
+const GAP = `[\\s\\S]{0,60}?`;
+
+function buildNarrationPatterns(): RegExp[] {
+  const sources: string[] = [];
+  for (const verb of REPORTING_VERBS) {
+    for (const marker of PROPHET_MARKERS) {
+      // "قال رسول الله ﷺ" — verb before the marker
+      sources.push(`${flexible(verb)}${GAP}${flexible(marker)}`);
+      // "(أن/سمعت) رسول الله ﷺ ... قال/يقول" — marker before the verb
+      sources.push(`${flexible(marker)}${GAP}${flexible(verb)}`);
+    }
+  }
+  return sources.map((s) => new RegExp(s, "g"));
+}
+
+const NARRATION_PATTERNS = buildNarrationPatterns();
+
+// Characters that stay on the chain side even when they trail a match.
+const CHAIN_SIDE_CHARS = new Set([" ", "\t", "\n", ":", "：", "،", ","]);
+
+function skipChainSideChars(text: string, index: number): number {
+  let i = index;
+  while (i < text.length && CHAIN_SIDE_CHARS.has(text[i])) i++;
+  return i;
+}
+
+// If the reporting verb came BEFORE the marker ("قال رسول الله ﷺ"), the
+// salutation/greeting trails the match instead of being swallowed inside
+// it. Absorb it here so it doesn't get colored as if it were the Prophet's
+// own words.
+const GREETING_AT_START = new RegExp(
+  `^(?:${flexible("صلى الله عليه وسلم")}|${flexible(
+    "صلى الله عليه وآله وسلم",
+  )}|ﷺ)`,
+);
+
+function skipTrailingGreeting(text: string, index: number): number {
+  let i = skipChainSideChars(text, index);
+  const rest = text.slice(i);
+  const match = GREETING_AT_START.exec(rest);
+  if (match) {
+    i += match[0].length;
+    i = skipChainSideChars(text, i);
+  }
+  return i;
+}
+
+const DEBUG_HADITH_SPLIT =
+  process.env.NODE_ENV !== "production" &&
+  process.env.DEBUG_HADITH_SPLIT !== "0";
+
+/**
+ * Splits a hadith's Arabic text into the narration chain (isnad) and the
+ * Prophet's ﷺ actual words (matn), so the caller can render them in
+ * different colors. Returns null when no recognizable narration trigger is
+ * found — callers should then render the whole text in the normal style.
+ */
+export function splitHadithNarration(text: string): HadithSplit | null {
+  if (!text) return null;
+
+  let bestEnd = -1;
+
+  for (const pattern of NARRATION_PATTERNS) {
+    pattern.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(text)) !== null) {
+      const end = match.index + match[0].length;
+      if (end > bestEnd) bestEnd = end;
+      if (match[0].length === 0) pattern.lastIndex++;
+    }
+  }
+
+  if (DEBUG_HADITH_SPLIT) {
+    // TEMP DEBUG — remove once confirmed working.
+    console.log("[splitHadithNarration] input:", text);
+    console.log("[splitHadithNarration] raw bestEnd:", bestEnd);
+  }
+
+  if (bestEnd === -1) {
+    if (DEBUG_HADITH_SPLIT) {
+      console.log("[splitHadithNarration] no trigger matched -> null");
+    }
+    return null;
+  }
+
+  const splitAt = skipTrailingGreeting(text, bestEnd);
+  const chain = text.slice(0, splitAt);
+
+  // بداية التخريج
+ const refRegex =
+   /\s*(?:رواه|أخرجه|متفق عليه|رواه البخاري|رواه مسلم|رواه أبو داود|رواه الترمذي|رواه النسائي|رواه ابن ماجه|\[رقم:)/;
+
+  const refMatch = refRegex.exec(text.slice(splitAt));
+  
+
+  let content = text.slice(splitAt);
+  let reference = "";
+
+  if (refMatch) {
+    const refStart = splitAt + (refMatch.index ?? 0);
+    content = text.slice(splitAt, refStart).trimEnd();
+    reference = text.slice(refStart).trimStart();
+  }
+  
+
+  return {
+    chain,
+    content,
+    reference,
+    
+  };
 }

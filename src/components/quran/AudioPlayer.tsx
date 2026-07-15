@@ -8,10 +8,22 @@ import {
   Repeat,
   Repeat1,
   Settings2,
+  RefreshCw,
 } from "lucide-react";
 import type { ReciterMoshaf } from "@/lib/reciters";
 import { surahAudioUrl } from "@/lib/reciters";
 import type { PageWord } from "@/lib/quran-page";
+import { SURAH_NAMES_AR } from "@/lib/surahs";
+import {
+  setMediaSessionMetadata,
+  setMediaSessionPlaybackState,
+  setMediaSessionHandlers,
+  clearMediaSession,
+} from "@/lib/media-session";
+import {
+  enableBackgroundAudio,
+  disableBackgroundAudio,
+} from "@/lib/background-audio";
 
 type Mode = "sync" | "continuous";
 type RepeatMode = "off" | "verse" | "page";
@@ -30,6 +42,26 @@ interface Props {
 }
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+
+// Verse-count-per-surah lookup, used only as a best-effort seek estimate
+// (see the comment in the continuous-mode effect below) — fetched once and
+// cached for the tab's lifetime, never re-fetched per reciter/page change.
+const verseCountCache = new Map<number, number>();
+let verseCountsPromise: Promise<void> | null = null;
+async function ensureVerseCounts() {
+  if (verseCountCache.size > 0) return;
+  if (!verseCountsPromise) {
+    verseCountsPromise = import("@/lib/quran-reader")
+      .then(async ({ getSurahs }) => {
+        const surahs = await getSurahs();
+        for (const s of surahs) verseCountCache.set(s.id, s.versesCount);
+      })
+      .catch(() => {
+        verseCountsPromise = null;
+      });
+  }
+  await verseCountsPromise;
+}
 
 export default function AudioPlayer({
   locale,
@@ -57,6 +89,13 @@ export default function AudioPlayer({
     (w) => w.charTypeName !== "end" && w.audioUrl,
   );
 
+  // Remembers the last playback position per surah (continuous mode) so
+  // switching reciters mid-surah resumes where you were instead of
+  // restarting at 0:00 — this was the actual root cause of "playback
+  // always starts from the beginning": the continuous-mode effect always
+  // created a brand-new Audio() at time 0 on every reciter change.
+  const resumePositions = useRef<Map<number, number>>(new Map());
+
   // ── Sync mode: sequential word playback ──
   const playWordAt = useCallback(
     (idx: number) => {
@@ -78,7 +117,6 @@ export default function AudioPlayer({
         const stillSameVerse = playableWords[next]?.verseKey === word.verseKey;
 
         if (repeatMode === "verse" && !stillSameVerse) {
-          // restart from first word of this verse
           const verseStart = playableWords.findIndex(
             (w) => w.verseKey === word.verseKey,
           );
@@ -116,13 +154,49 @@ export default function AudioPlayer({
     if (!selectedReciter || !currentSurahId) return;
     if (audioRef.current) audioRef.current.pause();
 
+    let cancelled = false;
     const audio = new Audio(surahAudioUrl(selectedReciter, currentSurahId));
     audio.playbackRate = speed;
     audioRef.current = audio;
 
-    audio.onloadedmetadata = () => setDuration(audio.duration || 0);
-    audio.ontimeupdate = () => setCurrentTime(audio.currentTime);
+    audio.onloadedmetadata = async () => {
+      if (cancelled) return;
+      setDuration(audio.duration || 0);
+
+      const resumed = resumePositions.current.get(currentSurahId);
+      if (resumed !== undefined && resumed > 0 && resumed < audio.duration) {
+        // Reciter changed (or we came back to this surah) mid-listen —
+        // continue from the same position instead of resetting.
+        audio.currentTime = resumed;
+      } else if (activeVerseKey && audio.duration) {
+        // No timing data exists for arbitrary mp3quran full-surah files
+        // (unlike the word-level sync mode above), so this is a best-effort
+        // proportional estimate — ayah position / total ayahs of the surah
+        // — good enough to land near the selected verse/page instead of
+        // always at 0:00, without pretending to be frame-accurate.
+        const [verseSurah, verseAyah] = activeVerseKey.split(":").map(Number);
+        if (verseSurah === currentSurahId) {
+          await ensureVerseCounts();
+          if (cancelled) return;
+          const total = verseCountCache.get(currentSurahId);
+          if (total && total > 1) {
+            const ratio = Math.max(0, (verseAyah - 1) / total);
+            audio.currentTime = Math.min(
+              audio.duration - 1,
+              ratio * audio.duration,
+            );
+          }
+        }
+      }
+      if (!cancelled) setCurrentTime(audio.currentTime);
+    };
+
+    audio.ontimeupdate = () => {
+      setCurrentTime(audio.currentTime);
+      resumePositions.current.set(currentSurahId, audio.currentTime);
+    };
     audio.onended = () => {
+      resumePositions.current.delete(currentSurahId);
       if (repeatMode === "page" || repeatMode === "verse") {
         audio.currentTime = 0;
         audio.play();
@@ -132,12 +206,16 @@ export default function AudioPlayer({
     };
 
     return () => {
+      cancelled = true;
       audio.pause();
     };
+    // Deliberately NOT depending on activeVerseKey — this effect should
+    // only recreate the Audio element when the mode, reciter, or surah
+    // actually changes, not on every tap-to-select-a-verse.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, selectedReciter?.id, currentSurahId]);
 
-  const togglePlay = () => {
+  const togglePlay = useCallback(() => {
     if (mode === "sync") {
       if (isPlaying) {
         audioRef.current?.pause();
@@ -157,6 +235,18 @@ export default function AudioPlayer({
     } else {
       audioRef.current.play();
       setIsPlaying(true);
+    }
+  }, [mode, isPlaying, activeVerseKey, playFromVerse, playWordAt]);
+
+  const restartFromBeginning = () => {
+    if (currentSurahId !== null) resumePositions.current.delete(currentSurahId);
+    if (audioRef.current) {
+      audioRef.current.currentTime = 0;
+      setCurrentTime(0);
+      if (!isPlaying) {
+        audioRef.current.play().catch(() => {});
+        setIsPlaying(true);
+      }
     }
   };
 
@@ -187,13 +277,57 @@ export default function AudioPlayer({
     return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
   };
 
-  // expose word index for external tap-to-play wiring
   useEffect(() => {
     if (mode === "sync" && activeVerseKey && !isPlaying) {
       const idx = playableWords.findIndex((w) => w.verseKey === activeVerseKey);
       if (idx >= 0) setWordIndex(idx);
     }
   }, [activeVerseKey, mode, isPlaying, playableWords]);
+
+  // ── Lock-screen / background media controls ──
+  // Runs whenever play state, surah, or reciter changes; metadata + action
+  // handlers are cheap to (re)apply and MediaSession has no "diff" API, so
+  // this is the normal way to keep it in sync.
+  useEffect(() => {
+    if (!isPlaying) {
+      setMediaSessionPlaybackState("paused");
+      disableBackgroundAudio();
+      return;
+    }
+
+    setMediaSessionPlaybackState("playing");
+    enableBackgroundAudio();
+
+    const surahName = currentSurahId ? SURAH_NAMES_AR[currentSurahId - 1] : "";
+    setMediaSessionMetadata({
+      title: surahName || (isAr ? "القرآن الكريم" : "Quran"),
+      artist: selectedReciter?.reciterNameAr || "",
+      album: isAr ? "مسجد نور الإيمان" : "Masjid Noor Al-Iman",
+    });
+
+    setMediaSessionHandlers({
+      onPlay: togglePlay,
+      onPause: togglePlay,
+      onNext: onNextPage,
+      onPrevious: onPrevPage,
+    });
+  }, [
+    isPlaying,
+    currentSurahId,
+    selectedReciter?.reciterNameAr,
+    isAr,
+    togglePlay,
+    onNextPage,
+    onPrevPage,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      clearMediaSession();
+      disableBackgroundAudio();
+    };
+  }, []);
+
 
   return (
     <div
@@ -218,18 +352,27 @@ export default function AudioPlayer({
             </option>
           </select>
           {mode === "continuous" && (
-            <button
-              onClick={onOpenReciterPanel}
-              className="flex items-center gap-1 bg-white/10 hover:bg-white/20 text-white text-xs rounded-lg px-2 py-1.5 font-arabic max-w-[90px] truncate"
-              title={isAr ? "اختر القارئ" : "Choose reciter"}
-            >
-              <Settings2 size={12} />
-              {selectedReciter
-                ? selectedReciter.reciterNameAr
-                : isAr
-                  ? "القارئ"
-                  : "Reciter"}
-            </button>
+            <>
+              <button
+                onClick={onOpenReciterPanel}
+                className="flex items-center gap-1 bg-white/10 hover:bg-white/20 text-white text-xs rounded-lg px-2 py-1.5 font-arabic max-w-[90px] truncate"
+                title={isAr ? "اختر القارئ" : "Choose reciter"}
+              >
+                <Settings2 size={12} />
+                {selectedReciter
+                  ? selectedReciter.reciterNameAr
+                  : isAr
+                    ? "القارئ"
+                    : "Reciter"}
+              </button>
+              <button
+                onClick={restartFromBeginning}
+                title={isAr ? "البدء من البداية" : "Start from beginning"}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white/70 flex items-center justify-center flex-shrink-0"
+              >
+                <RefreshCw size={13} />
+              </button>
+            </>
           )}
         </div>
 
@@ -267,15 +410,22 @@ export default function AudioPlayer({
               </span>
               <div
                 onClick={seek}
-                className="flex-1 h-1.5 rounded-full bg-white/10 cursor-pointer relative"
+                className="flex-1 h-1.5 rounded-full bg-white/10 cursor-pointer relative group"
               >
                 <div
-                  className="h-full rounded-full"
+                  className="h-full rounded-full transition-all"
                   style={{
                     width: duration
                       ? `${(currentTime / duration) * 100}%`
                       : "0%",
                     background: "linear-gradient(to right, #1B6B4A, #C9A84C)",
+                  }}
+                />
+                <div
+                  className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-white border-2 shadow opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+                  style={{
+                    left: `calc(${duration ? (currentTime / duration) * 100 : 0}% - 7px)`,
+                    borderColor: "#C9A84C",
                   }}
                 />
               </div>

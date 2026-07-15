@@ -1,3 +1,5 @@
+import { splitHadithNarration } from "@/lib/hadith";
+
 interface Props {
   hadith: {
     arabic: string;
@@ -8,6 +10,8 @@ interface Props {
 
 export default function DailyHadithSection({ hadith, locale }: Props) {
   const isAr = locale === "ar";
+  const split = splitHadithNarration(hadith.arabic);
+  
 
   return (
     <div className="relative bg-white rounded-3xl shadow-md border border-gray-100 overflow-hidden">
@@ -32,12 +36,28 @@ export default function DailyHadithSection({ hadith, locale }: Props) {
           {isAr ? "قال رسول الله ﷺ" : "The Prophet ﷺ said"}
         </p>
 
-        {/* Arabic hadith */}
+        {/* Arabic hadith — narration chain in normal color, the Prophet's
+            actual words in the accent (primary) color when detectable */}
         <p
-          className="font-arabic text-xl leading-loose text-gray-800 mb-6"
+          className="font-arabic text-xl leading-loose text-gray-500 mb-6"
           dir="rtl"
         >
-          {hadith.arabic}
+          {split ? (
+            <>
+              <span>{split.chain}</span>
+
+              <span className="text-primary font-bold">{split.content}</span>
+
+              {split.reference && (
+                <span className="text-gray-500 font-normal">
+                  {" "}
+                  {split.reference}
+                </span>
+              )}
+            </>
+          ) : (
+            hadith.arabic
+          )}
         </p>
 
         {/* Reference badge */}

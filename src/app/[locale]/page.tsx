@@ -128,7 +128,7 @@ export default async function HomePage({
               className="font-arabic text-sm tracking-widest mb-1"
               style={{ color: "#C9A84C" }}
             >
-              ✦ {isAr ? "آية عشوائية" : "Random Verse"} ✦
+              ✦ {isAr ? "آية اليوم" : "Verse of the Day"} ✦
             </p>
           </div>
           <DailyVerseSection verse={verse} locale={locale} />
@@ -140,7 +140,7 @@ export default async function HomePage({
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-6">
             <p className="font-arabic text-sm tracking-widest mb-1 text-primary">
-              ✦ {isAr ? "حديث عشوائي" : "Random Hadith"} ✦
+              ✦ {isAr ? "حديث اليوم" : "Hadith of the Day"} ✦
             </p>
           </div>
           <DailyHadithSection hadith={hadith} locale={locale} />

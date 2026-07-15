@@ -8,6 +8,7 @@ import {
   type ReciterMoshaf,
 } from "@/lib/reciters";
 import { useIsDesktop } from "@/hooks/useIsDesktop";
+import { ChevronDown } from "lucide-react";
 
 interface Props {
   isOpen: boolean;
@@ -15,6 +16,17 @@ interface Props {
   onSelect: (moshaf: ReciterMoshaf) => void;
   locale: string;
   selectedId?: string;
+  /** Desktop-only: collapses the docked panel to zero width for a
+   * distraction-free reading view, without unmounting it — search text,
+   * expanded accordion groups, and the reciter drilldown step all survive
+   * the toggle, and the width animates smoothly instead of popping. */
+  collapsed?: boolean;
+}
+
+function arabicFirstLetter(name: string): string {
+  const trimmed = name.trim();
+  const stripped = trimmed.replace(/^(الشيخ|الشيخة)\s+/, "");
+  return (stripped[0] || trimmed[0] || "#").toUpperCase();
 }
 
 export default function ReciterPanel({
@@ -23,6 +35,7 @@ export default function ReciterPanel({
   onSelect,
   locale,
   selectedId,
+  collapsed = false,
 }: Props) {
   const isAr = locale === "ar";
   const isDesktop = useIsDesktop(1024);
@@ -33,9 +46,17 @@ export default function ReciterPanel({
   const [selectedReciterId, setSelectedReciterId] = useState<number | null>(
     null,
   );
+  const [expandedLetters, setExpandedLetters] = useState<Set<string>>(
+    new Set(),
+  );
+
+  // On desktop the panel is always mounted (just visually collapsed), so
+  // fetch as soon as we know we're on desktop rather than waiting for it
+  // to be opened.
+  const shouldFetch = isDesktop || isOpen;
 
   useEffect(() => {
-    if (!isOpen || groups.length > 0) return;
+    if (!shouldFetch || groups.length > 0) return;
     setLoading(true);
     getReciterGroups()
       .then(setGroups)
@@ -43,21 +64,46 @@ export default function ReciterPanel({
         setError(isAr ? "تعذّر تحميل القرّاء" : "Failed to load reciters"),
       )
       .finally(() => setLoading(false));
-  }, [isOpen, groups.length, isAr]);
+  }, [shouldFetch, groups.length, isAr]);
 
-  // Land directly on the currently-playing reciter's list of recordings
-  // whenever the panel is (re)opened.
+  // Land directly on the currently-playing reciter's recordings whenever
+  // the panel is (re)opened / uncollapsed.
   useEffect(() => {
-    if (!isOpen || !selectedId) return;
+    if (!isOpen && collapsed) return;
+    if (!selectedId) return;
     const reciterId = parseInt(selectedId.split("-")[0], 10);
     if (Number.isFinite(reciterId)) setSelectedReciterId(reciterId);
-  }, [isOpen, selectedId]);
+  }, [isOpen, collapsed, selectedId]);
 
-  const filteredGroups = useMemo(() => {
+  const letterGroups = useMemo(() => {
     const q = search.trim();
-    if (!q) return groups;
-    return groups.filter((g) => g.nameAr.includes(q));
+    const filtered = q ? groups.filter((g) => g.nameAr.includes(q)) : groups;
+    const byLetter = new Map<string, ReciterGroup[]>();
+    for (const g of filtered) {
+      const letter = arabicFirstLetter(g.nameAr);
+      if (!byLetter.has(letter)) byLetter.set(letter, []);
+      byLetter.get(letter)!.push(g);
+    }
+    return Array.from(byLetter.entries()).sort(([a], [b]) =>
+      a.localeCompare(b, "ar"),
+    );
   }, [groups, search]);
+
+  // Searching implicitly expands every matching group so results are never
+  // hidden behind a collapsed accordion.
+  useEffect(() => {
+    if (!search.trim()) return;
+    setExpandedLetters(new Set(letterGroups.map(([letter]) => letter)));
+  }, [search, letterGroups]);
+
+  const toggleLetter = (letter: string) => {
+    setExpandedLetters((prev) => {
+      const next = new Set(prev);
+      if (next.has(letter)) next.delete(letter);
+      else next.add(letter);
+      return next;
+    });
+  };
 
   const selectedGroup =
     groups.find((g) => g.reciterId === selectedReciterId) || null;
@@ -70,16 +116,10 @@ export default function ReciterPanel({
 
   const handleSelect = (m: ReciterMoshaf) => {
     onSelect(m);
-    if (!isDesktop) handleClose();
-  };
-
-  const handleClose = () => {
-    onClose();
+    if (!isDesktop) onClose();
   };
 
   const goBackToReciters = () => setSelectedReciterId(null);
-
-  if (!isOpen) return null;
 
   const body = (
     <>
@@ -97,7 +137,7 @@ export default function ReciterPanel({
           </h2>
         )}
         <button
-          onClick={handleClose}
+          onClick={onClose}
           className="text-white/60 hover:text-white text-2xl w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors"
         >
           ✕
@@ -129,35 +169,66 @@ export default function ReciterPanel({
           </div>
         )}
 
-        {/* Step 1: pick a reciter */}
+        {/* Step 1: pick a reciter, grouped into alphabet accordions so the
+           list doesn't force one long uninterrupted scroll. */}
         {!loading &&
           !error &&
           !selectedGroup &&
-          filteredGroups.map((g) => (
-            <button
-              key={g.reciterId}
-              onClick={() => setSelectedReciterId(g.reciterId)}
-              className="w-full flex items-center justify-between px-3 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-right transition-colors"
-            >
-              <span className="text-white/30 text-xs">
-                {g.moshafs.length} {isAr ? "رواية" : "editions"}
-              </span>
-              <span className="font-arabic text-white text-sm font-bold">
-                {g.nameAr}
-              </span>
-            </button>
-          ))}
+          letterGroups.map(([letter, letterReciters]) => {
+            const isExpanded = expandedLetters.has(letter);
+            return (
+              <div
+                key={letter}
+                className="rounded-xl overflow-hidden bg-white/[0.03]"
+              >
+                <button
+                  onClick={() => toggleLetter(letter)}
+                  className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-white/5 transition-colors"
+                >
+                  <ChevronDown
+                    size={14}
+                    className={`text-white/40 transition-transform ${
+                      isExpanded ? "rotate-180" : ""
+                    }`}
+                  />
+                  <span className="flex items-center gap-2">
+                    <span className="text-white/30 text-xs">
+                      {letterReciters.length}
+                    </span>
+                    <span className="font-arabic text-[#C9A84C] text-sm font-bold">
+                      {letter}
+                    </span>
+                  </span>
+                </button>
+                {isExpanded && (
+                  <div className="px-2 pb-2 space-y-1">
+                    {letterReciters.map((g) => (
+                      <button
+                        key={g.reciterId}
+                        onClick={() => setSelectedReciterId(g.reciterId)}
+                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg bg-white/5 hover:bg-white/10 text-right transition-colors"
+                      >
+                        <span className="text-white/30 text-xs">
+                          {g.moshafs.length} {isAr ? "رواية" : "editions"}
+                        </span>
+                        <span className="font-arabic text-white text-sm font-bold">
+                          {g.nameAr}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
 
-        {!loading &&
-          !error &&
-          !selectedGroup &&
-          filteredGroups.length === 0 && (
-            <div className="text-center py-10 text-white/30 font-arabic text-sm">
-              {isAr ? "لا توجد نتائج" : "No results"}
-            </div>
-          )}
+        {!loading && !error && !selectedGroup && letterGroups.length === 0 && (
+          <div className="text-center py-10 text-white/30 font-arabic text-sm">
+            {isAr ? "لا توجد نتائج" : "No results"}
+          </div>
+        )}
 
-        {/* Step 2: pick a recording type, only the ones this reciter actually has */}
+        {/* Step 2: pick a recording type — only the ones this reciter has */}
         {!loading && !error && selectedGroup && (
           <div className="space-y-1.5">
             <p className="font-arabic text-[#C9A84C] text-sm font-bold mb-2 px-1">
@@ -182,25 +253,28 @@ export default function ReciterPanel({
     </>
   );
 
-  // Docked: a plain flex sibling (no `fixed`), meant to be rendered right
-  // next to the scrollable Mushaf area so it takes its own column and the
-  // Mushaf keeps the rest — see MushafViewer's layout wrapper.
   if (isDesktop) {
     return (
       <aside
-        className="w-80 flex-shrink-0 h-full bg-[#111] border-r border-white/10 flex flex-col"
+        className="h-full bg-[#111] border-r border-white/10 flex flex-col flex-shrink-0 overflow-hidden transition-[width,opacity] duration-200 ease-in-out"
+        style={{ width: collapsed ? 0 : 320, opacity: collapsed ? 0 : 1 }}
         dir="rtl"
+        aria-hidden={collapsed}
       >
-        {body}
+        {/* Fixed-width inner wrapper keeps content laid out at full size
+           while the outer <aside> animates width — prevents squish/reflow
+           during the collapse/expand transition. */}
+        <div className="w-80 h-full flex flex-col">{body}</div>
       </aside>
     );
   }
 
-  // Narrow / mobile: overlay drawer, same as before.
+  if (!isOpen) return null;
+
   return (
     <div
       className="fixed inset-0 z-[70] bg-black/60 flex justify-end"
-      onClick={handleClose}
+      onClick={onClose}
     >
       <div
         className="w-full max-w-sm h-full bg-[#111] flex flex-col shadow-2xl"
