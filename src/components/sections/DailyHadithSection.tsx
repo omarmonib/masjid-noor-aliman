@@ -1,4 +1,4 @@
-import { splitHadithNarration } from "@/lib/hadith";
+import { splitHadithNarration, stripDiacritics } from "@/lib/hadith";
 import ShareButtons from "@/components/shared/ShareButtons";
 
 interface Props {
@@ -14,7 +14,7 @@ export default function DailyHadithSection({ hadith, locale }: Props) {
   const split = splitHadithNarration(hadith.arabic);
 
   const shareText = [
-    hadith.arabic,
+    stripDiacritics(hadith.arabic),
     isAr
       ? `الأربعون النووية - حديث رقم ${hadith.number}`
       : `40 Hadith Nawawi - Hadith #${hadith.number}`,

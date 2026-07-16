@@ -37,7 +37,8 @@ export default function HadithBrowser({ locale, dailyHadith }: Props) {
           const matched = raw
             .filter(
               (h): h is { id?: number; text: string } =>
-                typeof h.text === "string" && h.text.includes(globalSearch.trim()),
+                typeof h.text === "string" &&
+                h.text.includes(globalSearch.trim()),
             )
             .slice(0, 5)
             .map((h, i: number) => ({
@@ -185,37 +186,6 @@ export default function HadithBrowser({ locale, dailyHadith }: Props) {
             </div>
           )}
         </div>
-        {/* Daily Hadith */}
-        {dailyHadith && dailyHadith.textAr && (
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-1 h-6 bg-[#C9A84C] rounded-full" />
-              <h2 className="font-arabic text-lg font-bold text-gray-800">
-                {isAr ? "حديث اليوم" : "Hadith of the Day"}
-              </h2>
-            </div>
-            <div
-              className="rounded-2xl p-6 text-white"
-              style={{
-                background: "linear-gradient(135deg, #0D3D28, #1B6B4A)",
-              }}
-            >
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-[#C9A84C] text-lg">🌟</span>
-                <span className="font-arabic text-[#C9A84C] text-sm">
-                  {isAr ? "الأربعون النووية" : "40 Hadith Nawawi"} ·{" "}
-                  {isAr ? "حديث" : "Hadith"} {dailyHadith.hadithNumber}
-                </span>
-              </div>
-              <p
-                className="font-arabic text-xl leading-loose text-right"
-                dir="rtl"
-              >
-                {dailyHadith.textAr}
-              </p>
-            </div>
-          </div>
-        )}
 
         {/* Collections grid */}
         <div>

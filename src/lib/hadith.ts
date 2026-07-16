@@ -149,6 +149,19 @@ function flexible(literal: string): string {
     .join("");
 }
 
+// Diacritic marks only (harakat, sukun, shadda, tanwin, dagger alif, and
+// Quranic annotation marks) — unlike normalizeArabic() in quran-search.ts,
+// this does NOT swap letter variants (ة→ه, ى→ي, etc). It's for producing
+// clean, shareable plain text that still reads as normal Arabic spelling,
+// just without the vowel markings.
+export function stripDiacritics(text: string): string {
+  return text
+    .replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, "")
+    .replace(/\u0640/g, "") // tatweel
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 const REPORTING_VERBS = ["قال", "قالت", "يقول", "تقول"];
 const PROPHET_MARKERS = ["رسول الله", "النبي"];
 

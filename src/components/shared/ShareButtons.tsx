@@ -7,9 +7,6 @@ interface Props {
   text: string;
   url?: string;
   locale: string;
-  /** "dark" for cards sitting on a dark background (e.g. the daily verse
-   * section), "light" for cards on a white background (e.g. the hadith
-   * card). Only affects the neutral "copy" button's colors. */
   variant?: "light" | "dark";
 }
 
@@ -32,7 +29,11 @@ export default function ShareButtons({
 
   const shareUrl =
     url || (typeof window !== "undefined" ? window.location.href : "");
-  const fullText = shareUrl ? `${text}\n\n${shareUrl}` : text;
+
+  const siteLabel = isAr
+    ? "موقع مسجد نور الإيمان"
+    : "Noor Al-Iman Mosque website";
+  const fullText = shareUrl ? `${text}\n\n${siteLabel}\n${shareUrl}` : text;
 
   const hasNativeShare = typeof navigator !== "undefined" && !!navigator.share;
 
@@ -72,10 +73,14 @@ export default function ShareButtons({
     }
   };
 
-  const copyBtnClass =
+  // Both the neutral "copy" and "native share" buttons have no brand color
+  // of their own (unlike WhatsApp green / Facebook blue), so on a dark card
+  // a light primary-green tint on top of an already-green background nearly
+  // disappears. Both need variant-aware styling to stay visible everywhere.
+  const neutralBtnClass =
     variant === "dark"
-      ? "bg-white/10 hover:bg-white/20 text-white/70"
-      : "bg-gray-100 hover:bg-gray-200 text-gray-500";
+      ? "bg-white/10 hover:bg-white/20 text-white/80"
+      : "bg-primary/10 hover:bg-primary/20 text-primary";
 
   return (
     <div className="flex items-center justify-center gap-2 flex-wrap">
@@ -83,7 +88,7 @@ export default function ShareButtons({
         <button
           onClick={handleNativeShare}
           title={isAr ? "مشاركة" : "Share"}
-          className="w-9 h-9 rounded-full bg-primary/10 hover:bg-primary/20 text-primary flex items-center justify-center transition-colors"
+          className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${neutralBtnClass}`}
         >
           <Share2 size={16} />
         </button>
@@ -105,7 +110,7 @@ export default function ShareButtons({
       <button
         onClick={handleCopy}
         title={isAr ? "نسخ" : "Copy"}
-        className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${copyBtnClass}`}
+        className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${neutralBtnClass}`}
       >
         {copied ? <Check size={16} /> : <Copy size={16} />}
       </button>
