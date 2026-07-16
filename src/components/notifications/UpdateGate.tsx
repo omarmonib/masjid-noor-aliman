@@ -9,6 +9,10 @@ export default function UpdateGate({ locale }: { locale: string }) {
   const isAr = locale === "ar";
   const [status, setStatus] = useState<"ok" | "optional" | "required">("ok");
   const [downloadUrl, setDownloadUrl] = useState("");
+  const [latestVersionCode, setLatestVersionCode] = useState<number | null>(
+    null,
+  );
+
 
   useEffect(() => {
     if (!isNativeApp()) return;
@@ -22,6 +26,7 @@ export default function UpdateGate({ locale }: { locale: string }) {
       );
       const data = await res.json();
       setDownloadUrl(data.downloadUrl);
+      setLatestVersionCode(data.latestVersionCode);
 
       if (installed < data.minVersionCode) setStatus("required");
       else if (installed < data.latestVersionCode) setStatus("optional");
@@ -30,7 +35,12 @@ export default function UpdateGate({ locale }: { locale: string }) {
 
   const openDownload = async () => {
     const { Browser } = await import("@capacitor/browser");
-    await Browser.open({ url: downloadUrl });
+    // Cache-bust: the blob URL is intentionally stable (same path every
+    // release) so old cached copies in the phone's browser can otherwise be
+    // served instead of the freshly-uploaded APK. Appending the version
+    // number as a query param makes each release a distinct cache key.
+    const bustedUrl = `${downloadUrl}${downloadUrl.includes("?") ? "&" : "?"}v=${latestVersionCode}`;
+    await Browser.open({ url: bustedUrl });
   };
 
   if (status === "ok") return null;
