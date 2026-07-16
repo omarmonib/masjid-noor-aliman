@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Share2, MessageCircle, Copy, Check } from "lucide-react";
+import { isNativeApp } from "@/lib/capacitor-adhan";
 
 interface Props {
   text: string;
@@ -26,18 +27,34 @@ export default function ShareButtons({
 }: Props) {
   const isAr = locale === "ar";
   const [copied, setCopied] = useState(false);
+  const native = isNativeApp();
 
   const shareUrl =
     url || (typeof window !== "undefined" ? window.location.href : "");
 
-  const siteLabel = isAr
-    ? "موقع مسجد نور الإيمان"
-    : "Noor Al-Iman Mosque website";
+  const siteLabel = isAr ? "موقع مسجد نور الإيمان" : "Noor Al-Iman Mosque website";
   const fullText = shareUrl ? `${text}\n\n${siteLabel}\n${shareUrl}` : text;
 
-  const hasNativeShare = typeof navigator !== "undefined" && !!navigator.share;
+  // Inside the installed Android app (Capacitor WebView), the browser's
+  // Web Share API is typically unavailable, so `navigator.share` is
+  // undefined and the button used to silently disappear there. On a real
+  // mobile browser (Chrome/Safari) it works natively. This checks both
+  // paths so the share button always shows on mobile — app or browser.
+  const hasWebShare =
+    typeof navigator !== "undefined" && !!navigator.share;
+  const showShareButton = native || hasWebShare;
 
-  const handleNativeShare = async () => {
+  const handleShare = async () => {
+    if (native) {
+      try {
+        const { Share } = await import("@capacitor/share");
+        await Share.share({ text, url: shareUrl, dialogTitle: siteLabel });
+      } catch {
+        // user cancelled — no-op
+      }
+      return;
+    }
+
     try {
       await navigator.share({ text, url: shareUrl });
     } catch {
@@ -73,10 +90,6 @@ export default function ShareButtons({
     }
   };
 
-  // Both the neutral "copy" and "native share" buttons have no brand color
-  // of their own (unlike WhatsApp green / Facebook blue), so on a dark card
-  // a light primary-green tint on top of an already-green background nearly
-  // disappears. Both need variant-aware styling to stay visible everywhere.
   const neutralBtnClass =
     variant === "dark"
       ? "bg-white/10 hover:bg-white/20 text-white/80"
@@ -84,9 +97,9 @@ export default function ShareButtons({
 
   return (
     <div className="flex items-center justify-center gap-2 flex-wrap">
-      {hasNativeShare && (
+      {showShareButton && (
         <button
-          onClick={handleNativeShare}
+          onClick={handleShare}
           title={isAr ? "مشاركة" : "Share"}
           className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${neutralBtnClass}`}
         >
