@@ -35,4 +35,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+*.apk
+*.apk.idsig
 public/downloads/*.apk
+android/app-*.apk
+android/app-*.apk.idsig
+
