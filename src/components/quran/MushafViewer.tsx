@@ -25,7 +25,8 @@ import { getFocusModePref, setFocusModePref } from "@/lib/quran-focus-prefs";
 import SurahPanel from "./SurahPanel";
 import ReciterPanel from "./ReciterPanel";
 import QuranSearchPanel from "./QuranSearchPanel";
-import AudioPlayer from "./AudioPlayer";
+import AudioPlayer, { type AudioPlayerHandle } from "./AudioPlayer";
+import AyahActionMenu from "./AyahActionMenu";
 import {
   Bookmark,
   BookmarkCheck,
@@ -46,6 +47,7 @@ const ZOOM_KEY = "quran:zoom";
 const RECITER_KEY = "quran:selected-reciter";
 const MIN_ZOOM = 0.6;
 const MAX_ZOOM = 2.5;
+const LONG_PRESS_MS = 500;
 const loadedFonts = new Set<string>();
 
 // Surah At-Tawbah (9) has no Bismillah per the standard Mushaf. Surah 1
@@ -125,11 +127,6 @@ export default function MushafViewer({ locale }: Props) {
   const [surahPanelOpen, setSurahPanelOpen] = useState(false);
 
   // ── Reading Focus Mode ──
-  // `focusMode` is the persisted on/off state. `controlsVisible` is a
-  // separate, transient layer: on mobile, tapping the page while focused
-  // temporarily shows controls again, then they auto-hide. On desktop the
-  // toolbar toggle button itself stays reachable via a small always-visible
-  // exit affordance instead of tap-to-reveal, since there's no touch tap.
   const [focusMode, setFocusMode] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
   const hideTimerRef = useRef<number | null>(null);
@@ -171,9 +168,6 @@ export default function MushafViewer({ locale }: Props) {
     else enterFocusMode();
   }, [focusMode, enterFocusMode, exitFocusMode]);
 
-  // Tapping the reading area while focused reveals controls briefly, then
-  // hides them again — doesn't fire on every scroll/zoom gesture, only a
-  // plain tap/click, so it won't fight with pinch-zoom or line taps.
   const handleReadingAreaTap = useCallback(() => {
     if (!focusMode) return;
     setControlsVisible((v) => {
@@ -187,10 +181,6 @@ export default function MushafViewer({ locale }: Props) {
   useEffect(() => clearHideTimer, [clearHideTimer]);
 
   // ── Settings (reciter) panel ──
-  // Desktop: always mounted, docked, and visibility is purely a CSS
-  // collapse driven by `panelHidden` — this is the distraction-free
-  // toggle, remembered for the session via sessionStorage.
-  // Mobile: a real overlay drawer, opened/closed via `reciterPanelOpen`.
   const isDesktopPanel = useIsDesktop(1024);
   const [panelHidden, setPanelHidden] = useState(false);
   const [reciterPanelOpen, setReciterPanelOpen] = useState(false);
@@ -251,6 +241,73 @@ export default function MushafViewer({ locale }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
+  const audioPlayerRef = useRef<AudioPlayerHandle | null>(null);
+
+  // ── Ayah long-press context menu ──
+  const [contextMenu, setContextMenu] = useState<{
+    verseKey: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const longPressTimerRef = useRef<number | null>(null);
+  const longPressFiredRef = useRef(false);
+
+  const clearLongPressTimer = useCallback(() => {
+    if (longPressTimerRef.current) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => clearLongPressTimer, [clearLongPressTimer]);
+
+  const handleWordPointerDown = useCallback(
+    (e: React.PointerEvent, verseKey: string) => {
+      longPressFiredRef.current = false;
+      const x = e.clientX;
+      const y = e.clientY;
+      clearLongPressTimer();
+      longPressTimerRef.current = window.setTimeout(() => {
+        longPressFiredRef.current = true;
+        setContextMenu({ verseKey, x, y });
+      }, LONG_PRESS_MS);
+    },
+    [clearLongPressTimer],
+  );
+
+  const handleWordPointerUp = useCallback(() => {
+    clearLongPressTimer();
+  }, [clearLongPressTimer]);
+
+  const handleWordClick = useCallback((verseKey: string) => {
+    // A long press already opened the context menu for this tap — don't
+    // also treat the resulting click as a plain verse-select.
+    if (longPressFiredRef.current) {
+      longPressFiredRef.current = false;
+      return;
+    }
+    setActiveVerseKey(verseKey);
+  }, []);
+
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(""), 2000);
+  }, []);
+
+  const handleStartFromHere = useCallback(
+    async (verseKey: string) => {
+      const ok = await audioPlayerRef.current?.startFromVerse(verseKey);
+      if (ok === false) {
+        showToast(
+          isAr
+            ? "اختر قارئاً أولاً من إعدادات الاستماع المتواصل"
+            : "Choose a reciter first from continuous-mode settings",
+        );
+        openSettingsPanel();
+      }
+    },
+    [isAr, openSettingsPanel, showToast],
+  );
 
   // Touch gesture refs
   const touchStartX = useRef<number | null>(null);
@@ -335,6 +392,13 @@ export default function MushafViewer({ locale }: Props) {
   // ── Fit width / height / screen ──
   const fitWidth = () => setAndPersistZoom(1);
 
+  const fitHeight = () => {
+    if (!scrollRef.current || !contentRef.current) return fitWidth();
+    const availableH = scrollRef.current.clientHeight - 32;
+    const contentH = contentRef.current.scrollHeight / zoom;
+    if (contentH > 0) setAndPersistZoom(availableH / contentH);
+  };
+
   const fitScreen = () => {
     if (!scrollRef.current || !contentRef.current) return fitWidth();
     const availableH = scrollRef.current.clientHeight - 32;
@@ -354,7 +418,11 @@ export default function MushafViewer({ locale }: Props) {
 
       switch (e.key) {
         case "Escape":
-          if (focusMode) exitFocusMode();
+          if (contextMenu) {
+            setContextMenu(null);
+          } else if (focusMode) {
+            exitFocusMode();
+          }
           break;
         case "f":
         case "F":
@@ -411,6 +479,7 @@ export default function MushafViewer({ locale }: Props) {
     focusMode,
     exitFocusMode,
     toggleFocusMode,
+    contextMenu,
   ]);
 
   // ── Touch gestures: swipe, pinch, double-tap ──
@@ -457,8 +526,6 @@ export default function MushafViewer({ locale }: Props) {
       if (now - lastTapTime.current < 300) {
         setAndPersistZoom(1);
       } else {
-        // Single tap (not part of a double-tap) — in Focus Mode this is
-        // the mobile reveal/hide gesture.
         handleReadingAreaTap();
       }
       lastTapTime.current = now;
@@ -491,8 +558,6 @@ export default function MushafViewer({ locale }: Props) {
   const handleSelectReciter = (m: ReciterMoshaf) => {
     setSelectedReciter(m);
     localStorage.setItem(RECITER_KEY, JSON.stringify(m));
-    // ReciterPanel itself closes the mobile drawer after a pick; the
-    // desktop dock stays open since it never blocks reading width.
   };
 
   const handleSearchNavigate = (page: number, verseKey: string) => {
@@ -522,11 +587,6 @@ export default function MushafViewer({ locale }: Props) {
     );
     el?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [searchHighlightKey, loading, pageNumber]);
-
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(""), 2000);
-  };
 
   const handleSaveReadingBookmark = () => {
     if (!pageData) return;
@@ -587,13 +647,11 @@ export default function MushafViewer({ locale }: Props) {
   const firstMeta = pageData?.verseMeta[0];
   const fontLoadedForPage = fontReady && loadedFonts.has(`p${pageNumber}-v2`);
 
-  // Chrome (toolbar, page nav, audio player) is shown unless Focus Mode is
-  // on and controls have auto-hidden/not been revealed.
   const chromeVisible = !focusMode || controlsVisible;
 
   return (
     <div ref={containerRef} className="h-screen bg-[#1a1a1a] flex flex-col">
-      {/* Toolbar — fixed, hidden entirely in Focus Mode once controls hide */}
+      {/* Toolbar */}
       {chromeVisible && (
         <div className="flex-shrink-0 bg-[#111] border-b border-white/10 px-3 py-2.5 z-40 transition-opacity duration-200">
           <div className="max-w-3xl mx-auto flex items-center justify-between gap-2 flex-wrap">
@@ -649,8 +707,20 @@ export default function MushafViewer({ locale }: Props) {
               >
                 +
               </button>
-              
-              
+              <button
+                onClick={fitWidth}
+                title={isAr ? "ملائمة العرض" : "Fit width"}
+                className="px-2 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 text-xs font-arabic"
+              >
+                {isAr ? "العرض" : "Width"}
+              </button>
+              <button
+                onClick={fitHeight}
+                title={isAr ? "ملائمة الارتفاع" : "Fit height"}
+                className="px-2 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 text-xs font-arabic"
+              >
+                {isAr ? "الارتفاع" : "Height"}
+              </button>
               <button
                 onClick={fitScreen}
                 title={isAr ? "ملائمة الشاشة" : "Fit screen"}
@@ -702,7 +772,7 @@ export default function MushafViewer({ locale }: Props) {
         </div>
       )}
 
-      {/* Page nav — hidden with the rest of the chrome in Focus Mode */}
+      {/* Page nav */}
       {chromeVisible && (
         <div className="flex-shrink-0 bg-[#161616] border-b border-white/5 px-3 py-2 z-30 transition-opacity duration-200">
           <div className="max-w-3xl mx-auto flex items-center justify-between">
@@ -739,9 +809,7 @@ export default function MushafViewer({ locale }: Props) {
         </div>
       )}
 
-      {/* Scrollable, zoomable Mushaf area + docked settings panel — the
-         Mushaf column always takes whatever width the (possibly
-         collapsed-to-zero) panel isn't using. */}
+      {/* Scrollable, zoomable Mushaf area + docked settings panel */}
       <div className="flex-1 flex min-h-0 relative">
         <div
           ref={scrollRef}
@@ -750,9 +818,6 @@ export default function MushafViewer({ locale }: Props) {
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
           onClick={(e) => {
-            // Desktop click-to-reveal mirrors the mobile tap gesture, but
-            // only when clicking empty space (not a word/button), so word
-            // taps for verse selection keep working normally.
             if (focusMode && e.target === e.currentTarget) {
               handleReadingAreaTap();
             }
@@ -855,9 +920,15 @@ export default function MushafViewer({ locale }: Props) {
                             <span
                               key={word.id}
                               data-verse-key={word.verseKey}
-                              onClick={() => setActiveVerseKey(word.verseKey)}
+                              onPointerDown={(e) =>
+                                handleWordPointerDown(e, word.verseKey)
+                              }
+                              onPointerUp={handleWordPointerUp}
+                              onPointerLeave={handleWordPointerUp}
+                              onPointerCancel={handleWordPointerUp}
+                              onClick={() => handleWordClick(word.verseKey)}
                               title={word.verseKey}
-                              className={`cursor-pointer rounded transition-colors ${
+                              className={`cursor-pointer rounded transition-colors select-none ${
                                 isSearchHit
                                   ? "bg-[#C9A84C]/40 ring-2 ring-[#C9A84C] animate-pulse"
                                   : isActive
@@ -872,6 +943,7 @@ export default function MushafViewer({ locale }: Props) {
                                 lineHeight: "2.2",
                                 color: "#1a1a1a",
                                 padding: "0 1px",
+                                WebkitTouchCallout: "none",
                               }}
                               dangerouslySetInnerHTML={
                                 fontLoadedForPage
@@ -913,9 +985,6 @@ export default function MushafViewer({ locale }: Props) {
           />
         )}
 
-        {/* Focus Mode exit affordance — a small, always-tappable pill so
-           there's never a dead end even before the reveal-tap timer fires
-           for the first time. */}
         {focusMode && (
           <button
             onClick={exitFocusMode}
@@ -931,9 +1000,9 @@ export default function MushafViewer({ locale }: Props) {
         )}
       </div>
 
-      {/* Audio player — hidden in Focus Mode along with the rest of the chrome */}
       {chromeVisible && (
         <AudioPlayer
+          ref={audioPlayerRef}
           locale={locale}
           pageWords={pageData?.words ?? []}
           activeVerseKey={activeVerseKey}
@@ -961,6 +1030,17 @@ export default function MushafViewer({ locale }: Props) {
         locale={locale}
         onNavigate={handleSearchNavigate}
       />
+
+      {contextMenu && (
+        <AyahActionMenu
+          verseKey={contextMenu.verseKey}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          locale={locale}
+          onStartFromHere={() => handleStartFromHere(contextMenu.verseKey)}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
 
       {/* Memorization dialog */}
       {memoOpen && (

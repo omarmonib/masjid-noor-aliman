@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
 import {
   Play,
   Pause,
@@ -41,6 +48,21 @@ interface Props {
   cdnBase: string;
 }
 
+export interface AudioPlayerHandle {
+  /**
+   * Starts recitation from the given ayah. Sync mode is exact (word-level
+   * audio segments, timing data comes from the API). Continuous mode has
+   * no per-ayah timestamps available from mp3quran's full-surah files, so
+   * it uses the same proportional (ayah index / total ayahs of the surah)
+   * estimate already used elsewhere in this component for resuming — this
+   * is reciter-agnostic, so it works the same regardless of which reciter
+   * is selected. Returns false if playback couldn't be started (no
+   * reciter chosen yet for continuous mode, or the verse isn't on the
+   * current surah).
+   */
+  startFromVerse: (verseKey: string) => Promise<boolean>;
+}
+
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
 // Verse-count-per-surah lookup, used only as a best-effort seek estimate
@@ -63,18 +85,21 @@ async function ensureVerseCounts() {
   await verseCountsPromise;
 }
 
-export default function AudioPlayer({
-  locale,
-  pageWords,
-  activeVerseKey,
-  currentSurahId,
-  selectedReciter,
-  onOpenReciterPanel,
-  onNextPage,
-  onPrevPage,
-  onVerseChange,
-  cdnBase,
-}: Props) {
+function AudioPlayerImpl(
+  {
+    locale,
+    pageWords,
+    activeVerseKey,
+    currentSurahId,
+    selectedReciter,
+    onOpenReciterPanel,
+    onNextPage,
+    onPrevPage,
+    onVerseChange,
+    cdnBase,
+  }: Props,
+  ref: React.ForwardedRef<AudioPlayerHandle>,
+) {
   const isAr = locale === "ar";
   const [mode, setMode] = useState<Mode>("sync");
   const [isPlaying, setIsPlaying] = useState(false);
@@ -91,10 +116,13 @@ export default function AudioPlayer({
 
   // Remembers the last playback position per surah (continuous mode) so
   // switching reciters mid-surah resumes where you were instead of
-  // restarting at 0:00 — this was the actual root cause of "playback
-  // always starts from the beginning": the continuous-mode effect always
-  // created a brand-new Audio() at time 0 on every reciter change.
+  // restarting at 0:00.
   const resumePositions = useRef<Map<number, number>>(new Map());
+
+  // Tracks which reciter+surah the currently-loaded continuous <audio>
+  // element belongs to, so startFromVerse() can tell whether it can reuse
+  // it or needs to build a fresh one.
+  const continuousKeyRef = useRef<string | null>(null);
 
   // ── Sync mode: sequential word playback ──
   const playWordAt = useCallback(
@@ -149,69 +177,101 @@ export default function AudioPlayer({
   );
 
   // ── Continuous mode: full surah mp3 ──
+  // Builds (or rebuilds) the <audio> element for the given reciter/surah.
+  // When `forceSeekVerseKey` is passed, the estimate always targets that
+  // verse and starts playing immediately — this is the explicit "start
+  // recitation from here" path. Without it, this falls back to the normal
+  // resume-position / activeVerseKey estimate used when switching
+  // reciters mid-listen, and does NOT autoplay (matches prior behavior).
+  const buildContinuousAudio = useCallback(
+    (reciter: ReciterMoshaf, surahId: number, forceSeekVerseKey?: string) => {
+      if (audioRef.current) audioRef.current.pause();
+
+      let cancelled = false;
+      const audio = new Audio(surahAudioUrl(reciter, surahId));
+      audio.playbackRate = speed;
+      audioRef.current = audio;
+      continuousKeyRef.current = `${reciter.id}-${surahId}`;
+
+      audio.onloadedmetadata = async () => {
+        if (cancelled) return;
+        setDuration(audio.duration || 0);
+
+        if (forceSeekVerseKey) {
+          await ensureVerseCounts();
+          if (cancelled) return;
+          const total = verseCountCache.get(surahId);
+          const [, ayahStr] = forceSeekVerseKey.split(":");
+          const ayah = parseInt(ayahStr, 10);
+          if (total && total > 1 && audio.duration) {
+            const ratio = Math.max(0, (ayah - 1) / total);
+            audio.currentTime = Math.min(
+              audio.duration - 0.5,
+              ratio * audio.duration,
+            );
+          } else {
+            audio.currentTime = 0;
+          }
+          resumePositions.current.set(surahId, audio.currentTime);
+          if (!cancelled) setCurrentTime(audio.currentTime);
+          audio.play().catch(() => setIsPlaying(false));
+          setIsPlaying(true);
+          return;
+        }
+
+        const resumed = resumePositions.current.get(surahId);
+        if (resumed !== undefined && resumed > 0 && resumed < audio.duration) {
+          audio.currentTime = resumed;
+        } else if (activeVerseKey && audio.duration) {
+          const [verseSurah, verseAyah] = activeVerseKey.split(":").map(Number);
+          if (verseSurah === surahId) {
+            await ensureVerseCounts();
+            if (cancelled) return;
+            const total = verseCountCache.get(surahId);
+            if (total && total > 1) {
+              const ratio = Math.max(0, (verseAyah - 1) / total);
+              audio.currentTime = Math.min(
+                audio.duration - 1,
+                ratio * audio.duration,
+              );
+            }
+          }
+        }
+        if (!cancelled) setCurrentTime(audio.currentTime);
+      };
+
+      audio.ontimeupdate = () => {
+        setCurrentTime(audio.currentTime);
+        resumePositions.current.set(surahId, audio.currentTime);
+      };
+      audio.onended = () => {
+        resumePositions.current.delete(surahId);
+        if (repeatMode === "page" || repeatMode === "verse") {
+          audio.currentTime = 0;
+          audio.play();
+        } else {
+          setIsPlaying(false);
+        }
+      };
+
+      return () => {
+        cancelled = true;
+        audio.pause();
+      };
+    },
+    [speed, repeatMode, activeVerseKey],
+  );
+
   useEffect(() => {
     if (mode !== "continuous") return;
     if (!selectedReciter || !currentSurahId) return;
-    if (audioRef.current) audioRef.current.pause();
-
-    let cancelled = false;
-    const audio = new Audio(surahAudioUrl(selectedReciter, currentSurahId));
-    audio.playbackRate = speed;
-    audioRef.current = audio;
-
-    audio.onloadedmetadata = async () => {
-      if (cancelled) return;
-      setDuration(audio.duration || 0);
-
-      const resumed = resumePositions.current.get(currentSurahId);
-      if (resumed !== undefined && resumed > 0 && resumed < audio.duration) {
-        // Reciter changed (or we came back to this surah) mid-listen —
-        // continue from the same position instead of resetting.
-        audio.currentTime = resumed;
-      } else if (activeVerseKey && audio.duration) {
-        // No timing data exists for arbitrary mp3quran full-surah files
-        // (unlike the word-level sync mode above), so this is a best-effort
-        // proportional estimate — ayah position / total ayahs of the surah
-        // — good enough to land near the selected verse/page instead of
-        // always at 0:00, without pretending to be frame-accurate.
-        const [verseSurah, verseAyah] = activeVerseKey.split(":").map(Number);
-        if (verseSurah === currentSurahId) {
-          await ensureVerseCounts();
-          if (cancelled) return;
-          const total = verseCountCache.get(currentSurahId);
-          if (total && total > 1) {
-            const ratio = Math.max(0, (verseAyah - 1) / total);
-            audio.currentTime = Math.min(
-              audio.duration - 1,
-              ratio * audio.duration,
-            );
-          }
-        }
-      }
-      if (!cancelled) setCurrentTime(audio.currentTime);
-    };
-
-    audio.ontimeupdate = () => {
-      setCurrentTime(audio.currentTime);
-      resumePositions.current.set(currentSurahId, audio.currentTime);
-    };
-    audio.onended = () => {
-      resumePositions.current.delete(currentSurahId);
-      if (repeatMode === "page" || repeatMode === "verse") {
-        audio.currentTime = 0;
-        audio.play();
-      } else {
-        setIsPlaying(false);
-      }
-    };
-
-    return () => {
-      cancelled = true;
-      audio.pause();
-    };
-    // Deliberately NOT depending on activeVerseKey — this effect should
-    // only recreate the Audio element when the mode, reciter, or surah
-    // actually changes, not on every tap-to-select-a-verse.
+    const cleanup = buildContinuousAudio(selectedReciter, currentSurahId);
+    return cleanup;
+    // Deliberately NOT depending on activeVerseKey/buildContinuousAudio's
+    // other closure values — this effect should only recreate the Audio
+    // element when the mode, reciter, or surah actually changes, not on
+    // every tap-to-select-a-verse. buildContinuousAudio reads the latest
+    // activeVerseKey itself via closure at call time.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, selectedReciter?.id, currentSurahId]);
 
@@ -250,6 +310,41 @@ export default function AudioPlayer({
     }
   };
 
+  // ── Imperative "start from this ayah" entry point ──
+  const startFromVerse = useCallback(
+    async (verseKey: string): Promise<boolean> => {
+      if (!currentSurahId) return false;
+      const [surahStr] = verseKey.split(":");
+      if (parseInt(surahStr, 10) !== currentSurahId) return false;
+
+      if (mode === "sync") {
+        playFromVerse(verseKey);
+        return true;
+      }
+
+      // continuous mode needs a reciter — can't build a stream without one
+      if (!selectedReciter) return false;
+
+      onVerseChange(verseKey);
+      if (mode !== "continuous") setMode("continuous");
+      // Always rebuild against this exact verse — simpler and more
+      // reliable than trying to reuse a possibly-in-flight audio element,
+      // and the browser has the file cached after the first load anyway.
+      buildContinuousAudio(selectedReciter, currentSurahId, verseKey);
+      return true;
+    },
+    [
+      mode,
+      currentSurahId,
+      selectedReciter,
+      playFromVerse,
+      onVerseChange,
+      buildContinuousAudio,
+    ],
+  );
+
+  useImperativeHandle(ref, () => ({ startFromVerse }), [startFromVerse]);
+
   const changeSpeed = () => {
     const idx = SPEEDS.indexOf(speed);
     const next = SPEEDS[(idx + 1) % SPEEDS.length];
@@ -285,9 +380,6 @@ export default function AudioPlayer({
   }, [activeVerseKey, mode, isPlaying, playableWords]);
 
   // ── Lock-screen / background media controls ──
-  // Runs whenever play state, surah, or reciter changes; metadata + action
-  // handlers are cheap to (re)apply and MediaSession has no "diff" API, so
-  // this is the normal way to keep it in sync.
   useEffect(() => {
     if (!isPlaying) {
       setMediaSessionPlaybackState("paused");
@@ -327,7 +419,6 @@ export default function AudioPlayer({
       disableBackgroundAudio();
     };
   }, []);
-
 
   return (
     <div
@@ -474,3 +565,6 @@ export default function AudioPlayer({
     </div>
   );
 }
+
+const AudioPlayer = forwardRef<AudioPlayerHandle, Props>(AudioPlayerImpl);
+export default AudioPlayer;
