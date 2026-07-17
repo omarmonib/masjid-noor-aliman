@@ -3,11 +3,9 @@ import { getMessages, setRequestLocale } from "next-intl/server";
 import { Cairo, Amiri, Inter } from "next/font/google";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import Navbar from "@/components/layout/Navbar";
+import AppChrome from "@/components/layout/AppChrome";
 import SessionWrapper from "@/components/auth/SessionWrapper";
 import type { Metadata, Viewport } from "next";
-import NotificationPrompt from "@/components/notifications/NotificationPrompt";
-import AdhanPlayer from "@/components/notifications/AdhanPlayer";
 import NativeAdhanScheduler from "@/components/notifications/NativeAdhanScheduler";
 import NativeAuthBridge from "@/components/auth/NativeAuthBridge";
 import UpdateGate from "@/components/notifications/UpdateGate";
@@ -81,13 +79,18 @@ export default async function LocaleLayout({
       >
         <NextIntlClientProvider messages={messages}>
           <SessionWrapper session={session}>
-            <Navbar locale={locale} />
-            <NotificationPrompt locale={locale} />
-            <AdhanPlayer locale={locale} />
+            {/* AppChrome switches between WebLayout and NativeLayout —
+               the entire nav/app-bar/bottom-nav experience lives inside
+               one of those two, never here. This file only owns things
+               that must exist regardless of which shell is active. */}
+            <AppChrome locale={locale}>{children}</AppChrome>
+
+            {/* These three self-guard on isNativeApp() internally and
+               correctly no-op on web, so they're mounted once here
+               rather than duplicated inside WebLayout/NativeLayout. */}
             <NativeAdhanScheduler />
             <NativeAuthBridge />
             <UpdateGate locale={locale} />
-            {children}
           </SessionWrapper>
         </NextIntlClientProvider>
         <script

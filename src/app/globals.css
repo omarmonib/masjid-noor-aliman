@@ -52,3 +52,41 @@ input[type="number"] {
     display: none !important;
   }
 }
+
+/* ── Native app shell (Capacitor) additions ──────────────────────────
+   These only affect elements that opt in via the .native-scroll class
+   (used exclusively by NativeLayout's content area) or are otherwise
+   scoped so they never alter the website's existing scrolling/overscroll
+   behavior. Nothing below changes any selector the web layout relies on. */
+
+/* Real native-feeling momentum scrolling for the native shell's content
+   area, instead of default WebView scroll behavior which can feel stiff
+   or rubber-band oddly compared to a true native Android/iOS scroll. */
+.native-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+/* Prevents the whole native shell from bounce-scrolling as a page (only
+   the .native-scroll content area itself should scroll), so the fixed
+   App Bar and Bottom Nav never visually detach from the viewport edges
+   during an overscroll gesture on Android/iOS. Scoped to a dedicated
+   class rather than `html`/`body` so it can never affect the website. */
+.native-shell-root {
+  overscroll-behavior-y: none;
+  height: 100%;
+}
+
+/* Utility classes for safe-area-aware spacing, used by native components
+   that need padding/margin beyond the fixed App Bar/Bottom Nav heights
+   already handled inline in NativeLayout (e.g. a future MobileFAB or
+   MobileBottomSheet positioned relative to the bottom safe area). */
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.mb-safe {
+  margin-bottom: env(safe-area-inset-bottom);
+}
