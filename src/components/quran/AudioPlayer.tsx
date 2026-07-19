@@ -17,8 +17,7 @@ import {
   Settings2,
   RefreshCw,
 } from "lucide-react";
-import type { ReciterMoshaf } from "@/lib/reciters";
-import { surahAudioUrl } from "@/lib/reciters";
+import { ayahAudioUrl, type CuratedReciter } from "@/lib/reciters";
 import type { PageWord } from "@/lib/quran-page";
 import { SURAH_NAMES_AR } from "@/lib/surahs";
 import {
@@ -40,7 +39,7 @@ interface Props {
   pageWords: PageWord[]; // words for current page, in order
   activeVerseKey: string | null;
   currentSurahId: number | null;
-  selectedReciter: ReciterMoshaf | null;
+  selectedReciter: CuratedReciter | null;
   onOpenReciterPanel: () => void;
   onNextPage: () => void;
   onPrevPage: () => void;
@@ -50,24 +49,21 @@ interface Props {
 
 export interface AudioPlayerHandle {
   /**
-   * Starts recitation from the given ayah. Sync mode is exact (word-level
-   * audio segments, timing data comes from the API). Continuous mode has
-   * no per-ayah timestamps available from mp3quran's full-surah files, so
-   * it uses the same proportional (ayah index / total ayahs of the surah)
-   * estimate already used elsewhere in this component for resuming — this
-   * is reciter-agnostic, so it works the same regardless of which reciter
-   * is selected. Returns false if playback couldn't be started (no
-   * reciter chosen yet for continuous mode, or the verse isn't on the
-   * current surah).
+   * Starts recitation from the given ayah. Sync mode plays the exact
+   * word-level audio segment (Quran Foundation's timestamped word data).
+   * Continuous mode plays the exact per-ayah file for the selected
+   * reciter and chains forward ayah-by-ayah to the end of the surah —
+   * every reciter in the picker has verified per-ayah audio, so this is
+   * always exact, never an estimate. Returns false only if continuous
+   * mode has no reciter selected yet (nothing to play).
    */
   startFromVerse: (verseKey: string) => Promise<boolean>;
 }
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
-// Verse-count-per-surah lookup, used only as a best-effort seek estimate
-// (see the comment in the continuous-mode effect below) — fetched once and
-// cached for the tab's lifetime, never re-fetched per reciter/page change.
+// Verse-count-per-surah lookup — used only to know where a surah ends
+// (so the ayah chain knows when to stop / loop), never for seeking.
 const verseCountCache = new Map<number, number>();
 let verseCountsPromise: Promise<void> | null = null;
 async function ensureVerseCounts() {
@@ -107,6 +103,8 @@ function AudioPlayerImpl(
   const [speed, setSpeed] = useState(1);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [currentAyah, setCurrentAyah] = useState<number | null>(null);
+  const [totalAyahs, setTotalAyahs] = useState<number | null>(null);
   const [, setWordIndex] = useState(0);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -114,17 +112,18 @@ function AudioPlayerImpl(
     (w) => w.charTypeName !== "end" && w.audioUrl,
   );
 
-  // Remembers the last playback position per surah (continuous mode) so
-  // switching reciters mid-surah resumes where you were instead of
-  // restarting at 0:00.
-  const resumePositions = useRef<Map<number, number>>(new Map());
+  // Remembers the last ayah reached per reciter+surah, so pressing play
+  // again after switching pages/reciters resumes at that exact ayah
+  // (never a time estimate — always a specific ayah number).
+  const resumeAyahRef = useRef<Map<string, number>>(new Map());
 
-  // Tracks which reciter+surah the currently-loaded continuous <audio>
-  // element belongs to, so startFromVerse() can tell whether it can reuse
-  // it or needs to build a fresh one.
-  const continuousKeyRef = useRef<string | null>(null);
+  // Cancellation token for the in-flight ayah chain — lets us stop a
+  // chain cleanly when the surah/reciter changes or a new chain starts,
+  // without racing a stale onended callback into playing the wrong file.
+  const chainTokenRef = useRef<{ cancelled: boolean } | null>(null);
 
-  // ── Sync mode: sequential word playback ──
+  // ── Sync mode: sequential word playback (unaffected by this redesign —
+  // already exact, since Quran Foundation's word audio is timestamped) ──
   const playWordAt = useCallback(
     (idx: number) => {
       if (idx < 0 || idx >= playableWords.length) {
@@ -176,104 +175,85 @@ function AudioPlayerImpl(
     [playableWords, playWordAt],
   );
 
-  // ── Continuous mode: full surah mp3 ──
-  // Builds (or rebuilds) the <audio> element for the given reciter/surah.
-  // When `forceSeekVerseKey` is passed, the estimate always targets that
-  // verse and starts playing immediately — this is the explicit "start
-  // recitation from here" path. Without it, this falls back to the normal
-  // resume-position / activeVerseKey estimate used when switching
-  // reciters mid-listen, and does NOT autoplay (matches prior behavior).
-  const buildContinuousAudio = useCallback(
-    (reciter: ReciterMoshaf, surahId: number, forceSeekVerseKey?: string) => {
+  // ── Continuous mode: per-ayah chain ──
+  // Plays ayah `startAyah`, then `startAyah + 1`, and so on to the end of
+  // the surah. Every reciter available in the picker has a real, distinct
+  // audio file per ayah — there is no seeking or estimation anywhere in
+  // this function. This is used both for "Start Recitation From Here"
+  // and for the ordinary play button, just with a different starting ayah.
+  const playAyahChain = useCallback(
+    async (reciter: CuratedReciter, surahId: number, startAyah: number) => {
+      if (chainTokenRef.current) chainTokenRef.current.cancelled = true;
       if (audioRef.current) audioRef.current.pause();
 
-      let cancelled = false;
-      const audio = new Audio(surahAudioUrl(reciter, surahId));
-      audio.playbackRate = speed;
-      audioRef.current = audio;
-      continuousKeyRef.current = `${reciter.id}-${surahId}`;
+      const token = { cancelled: false };
+      chainTokenRef.current = token;
 
-      audio.onloadedmetadata = async () => {
-        if (cancelled) return;
-        setDuration(audio.duration || 0);
+      await ensureVerseCounts();
+      if (token.cancelled) return;
+      const total = verseCountCache.get(surahId) ?? startAyah;
+      setTotalAyahs(total);
+      const resumeKey = `${reciter.id}-${surahId}`;
 
-        if (forceSeekVerseKey) {
-          await ensureVerseCounts();
-          if (cancelled) return;
-          const total = verseCountCache.get(surahId);
-          const [, ayahStr] = forceSeekVerseKey.split(":");
-          const ayah = parseInt(ayahStr, 10);
-          if (total && total > 1 && audio.duration) {
-            const ratio = Math.max(0, (ayah - 1) / total);
-            audio.currentTime = Math.min(
-              audio.duration - 0.5,
-              ratio * audio.duration,
-            );
+      const playAyah = (ayahNum: number) => {
+        if (token.cancelled) return;
+
+        if (ayahNum > total) {
+          if (repeatMode === "page") {
+            playAyah(startAyah);
           } else {
-            audio.currentTime = 0;
+            setIsPlaying(false);
+            resumeAyahRef.current.delete(resumeKey);
           }
-          resumePositions.current.set(surahId, audio.currentTime);
-          if (!cancelled) setCurrentTime(audio.currentTime);
-          audio.play().catch(() => setIsPlaying(false));
-          setIsPlaying(true);
           return;
         }
 
-        const resumed = resumePositions.current.get(surahId);
-        if (resumed !== undefined && resumed > 0 && resumed < audio.duration) {
-          audio.currentTime = resumed;
-        } else if (activeVerseKey && audio.duration) {
-          const [verseSurah, verseAyah] = activeVerseKey.split(":").map(Number);
-          if (verseSurah === surahId) {
-            await ensureVerseCounts();
-            if (cancelled) return;
-            const total = verseCountCache.get(surahId);
-            if (total && total > 1) {
-              const ratio = Math.max(0, (verseAyah - 1) / total);
-              audio.currentTime = Math.min(
-                audio.duration - 1,
-                ratio * audio.duration,
-              );
-            }
+        const audio = new Audio(ayahAudioUrl(reciter.id, surahId, ayahNum));
+        audio.playbackRate = speed;
+        audioRef.current = audio;
+        setCurrentAyah(ayahNum);
+        resumeAyahRef.current.set(resumeKey, ayahNum);
+        onVerseChange(`${surahId}:${ayahNum}`);
+
+        audio.onloadedmetadata = () => {
+          if (!token.cancelled) setDuration(audio.duration || 0);
+        };
+        audio.ontimeupdate = () => {
+          if (!token.cancelled) setCurrentTime(audio.currentTime);
+        };
+        audio.onended = () => {
+          if (token.cancelled) return;
+          if (repeatMode === "verse") {
+            playAyah(ayahNum);
+            return;
           }
-        }
-        if (!cancelled) setCurrentTime(audio.currentTime);
+          playAyah(ayahNum + 1);
+        };
+        // A single ayah file failing to load (network hiccup, etc.)
+        // shouldn't stall the whole recitation — skip to the next ayah
+        // rather than leaving playback silently stuck.
+        audio.onerror = () => {
+          if (!token.cancelled) playAyah(ayahNum + 1);
+        };
+
+        audio.play().catch(() => setIsPlaying(false));
+        setIsPlaying(true);
       };
 
-      audio.ontimeupdate = () => {
-        setCurrentTime(audio.currentTime);
-        resumePositions.current.set(surahId, audio.currentTime);
-      };
-      audio.onended = () => {
-        resumePositions.current.delete(surahId);
-        if (repeatMode === "page" || repeatMode === "verse") {
-          audio.currentTime = 0;
-          audio.play();
-        } else {
-          setIsPlaying(false);
-        }
-      };
-
-      return () => {
-        cancelled = true;
-        audio.pause();
-      };
+      playAyah(startAyah);
     },
-    [speed, repeatMode, activeVerseKey],
+    [speed, repeatMode, onVerseChange],
   );
 
+  // Switching surah or reciter stops whatever continuous playback was
+  // running rather than trying to carry it over — the user presses play
+  // again to start the new surah/reciter combination explicitly.
   useEffect(() => {
-    if (mode !== "continuous") return;
-    if (!selectedReciter || !currentSurahId) return;
-    const cleanup = buildContinuousAudio(selectedReciter, currentSurahId);
-    return cleanup;
-    // Deliberately NOT depending on activeVerseKey/buildContinuousAudio's
-    // other closure values — this effect should only recreate the Audio
-    // element when the mode, reciter, or surah actually changes, not on
-    // every tap-to-select-a-verse. buildContinuousAudio reads the latest
-    // activeVerseKey itself via closure at call time.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, selectedReciter?.id, currentSurahId]);
+    return () => {
+      if (chainTokenRef.current) chainTokenRef.current.cancelled = true;
+      audioRef.current?.pause();
+    };
+  }, [currentSurahId, selectedReciter?.id]);
 
   const togglePlay = useCallback(() => {
     if (mode === "sync") {
@@ -287,34 +267,48 @@ function AudioPlayerImpl(
       }
       return;
     }
+
     // continuous
-    if (!audioRef.current) return;
     if (isPlaying) {
-      audioRef.current.pause();
+      audioRef.current?.pause();
       setIsPlaying(false);
-    } else {
-      audioRef.current.play();
-      setIsPlaying(true);
+      return;
     }
-  }, [mode, isPlaying, activeVerseKey, playFromVerse, playWordAt]);
+    if (audioRef.current && !audioRef.current.ended) {
+      audioRef.current.play().catch(() => {});
+      setIsPlaying(true);
+      return;
+    }
+    if (!selectedReciter || !currentSurahId) return;
+    const resumeKey = `${selectedReciter.id}-${currentSurahId}`;
+    const resumed = resumeAyahRef.current.get(resumeKey);
+    const fromActive =
+      activeVerseKey &&
+      parseInt(activeVerseKey.split(":")[0], 10) === currentSurahId
+        ? parseInt(activeVerseKey.split(":")[1], 10)
+        : null;
+    playAyahChain(selectedReciter, currentSurahId, resumed ?? fromActive ?? 1);
+  }, [
+    mode,
+    isPlaying,
+    activeVerseKey,
+    playFromVerse,
+    playWordAt,
+    selectedReciter,
+    currentSurahId,
+    playAyahChain,
+  ]);
 
   const restartFromBeginning = () => {
-    if (currentSurahId !== null) resumePositions.current.delete(currentSurahId);
-    if (audioRef.current) {
-      audioRef.current.currentTime = 0;
-      setCurrentTime(0);
-      if (!isPlaying) {
-        audioRef.current.play().catch(() => {});
-        setIsPlaying(true);
-      }
-    }
+    if (!selectedReciter || !currentSurahId) return;
+    playAyahChain(selectedReciter, currentSurahId, 1);
   };
 
   // ── Imperative "start from this ayah" entry point ──
   const startFromVerse = useCallback(
     async (verseKey: string): Promise<boolean> => {
       if (!currentSurahId) return false;
-      const [surahStr] = verseKey.split(":");
+      const [surahStr, ayahStr] = verseKey.split(":");
       if (parseInt(surahStr, 10) !== currentSurahId) return false;
 
       if (mode === "sync") {
@@ -322,25 +316,16 @@ function AudioPlayerImpl(
         return true;
       }
 
-      // continuous mode needs a reciter — can't build a stream without one
+      // Continuous mode — every reciter in the picker has verified
+      // per-ayah audio, so this is always exact. The only thing that can
+      // block it is no reciter being selected yet.
       if (!selectedReciter) return false;
 
-      onVerseChange(verseKey);
-      if (mode !== "continuous") setMode("continuous");
-      // Always rebuild against this exact verse — simpler and more
-      // reliable than trying to reuse a possibly-in-flight audio element,
-      // and the browser has the file cached after the first load anyway.
-      buildContinuousAudio(selectedReciter, currentSurahId, verseKey);
+      const ayah = parseInt(ayahStr, 10);
+      await playAyahChain(selectedReciter, currentSurahId, ayah);
       return true;
     },
-    [
-      mode,
-      currentSurahId,
-      selectedReciter,
-      playFromVerse,
-      onVerseChange,
-      buildContinuousAudio,
-    ],
+    [mode, currentSurahId, selectedReciter, playFromVerse, playAyahChain],
   );
 
   useImperativeHandle(ref, () => ({ startFromVerse }), [startFromVerse]);
@@ -358,6 +343,9 @@ function AudioPlayerImpl(
     );
   };
 
+  // Seeking here only scrubs within the currently-loaded ayah's own file
+  // (a normal, exact HTML5 audio seek) — it never jumps between ayahs or
+  // estimates a position inside a longer file.
   const seek = (e: React.MouseEvent<HTMLDivElement>) => {
     if (mode !== "continuous" || !audioRef.current?.duration) return;
     const rect = e.currentTarget.getBoundingClientRect();
@@ -393,7 +381,7 @@ function AudioPlayerImpl(
     const surahName = currentSurahId ? SURAH_NAMES_AR[currentSurahId - 1] : "";
     setMediaSessionMetadata({
       title: surahName || (isAr ? "القرآن الكريم" : "Quran"),
-      artist: selectedReciter?.reciterNameAr || "",
+      artist: selectedReciter?.nameAr || "",
       album: isAr ? "مسجد نور الإيمان" : "Masjid Noor Al-Iman",
     });
 
@@ -406,7 +394,7 @@ function AudioPlayerImpl(
   }, [
     isPlaying,
     currentSurahId,
-    selectedReciter?.reciterNameAr,
+    selectedReciter?.nameAr,
     isAr,
     togglePlay,
     onNextPage,
@@ -451,7 +439,7 @@ function AudioPlayerImpl(
               >
                 <Settings2 size={12} />
                 {selectedReciter
-                  ? selectedReciter.reciterNameAr
+                  ? selectedReciter.nameAr
                   : isAr
                     ? "القارئ"
                     : "Reciter"}
@@ -492,7 +480,7 @@ function AudioPlayerImpl(
           </button>
         </div>
 
-        {/* Progress (continuous mode only — sync mode has no single duration) */}
+        {/* Progress */}
         <div className="flex-1 min-w-0">
           {mode === "continuous" ? (
             <div className="flex items-center gap-2">
@@ -523,6 +511,11 @@ function AudioPlayerImpl(
               <span className="text-white/40 text-[10px] font-mono w-9">
                 {fmt(duration)}
               </span>
+              {currentAyah !== null && totalAyahs !== null && (
+                <span className="text-white/30 text-[10px] font-mono whitespace-nowrap">
+                  {currentAyah}/{totalAyahs}
+                </span>
+              )}
             </div>
           ) : (
             <p className="text-white/50 text-xs font-arabic truncate text-center">

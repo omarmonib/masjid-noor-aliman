@@ -15,7 +15,7 @@ import {
   getMemorizationBookmark,
   saveMemorizationBookmark,
 } from "@/lib/quran-bookmarks";
-import type { ReciterMoshaf } from "@/lib/reciters";
+import type { CuratedReciter } from "@/lib/reciters";
 import { useIsDesktop } from "@/hooks/useIsDesktop";
 import {
   getPanelHiddenPref,
@@ -229,7 +229,7 @@ export default function MushafViewer({ locale }: Props) {
   const searchHighlightTimeoutRef = useRef<number | null>(null);
 
   const [activeVerseKey, setActiveVerseKey] = useState<string | null>(null);
-  const [selectedReciter, setSelectedReciter] = useState<ReciterMoshaf | null>(
+  const [selectedReciter, setSelectedReciter] = useState<CuratedReciter | null>(
     null,
   );
 
@@ -555,7 +555,7 @@ export default function MushafViewer({ locale }: Props) {
     goToPage(page);
   };
 
-  const handleSelectReciter = (m: ReciterMoshaf) => {
+  const handleSelectReciter = (m: CuratedReciter) => {
     setSelectedReciter(m);
     localStorage.setItem(RECITER_KEY, JSON.stringify(m));
   };
