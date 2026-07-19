@@ -22,6 +22,7 @@ import {
   setPanelHiddenPref,
 } from "@/lib/quran-panel-prefs";
 import { getFocusModePref, setFocusModePref } from "@/lib/quran-focus-prefs";
+import { getPageForVerseKey } from "@/lib/quran-search";
 import SurahPanel from "./SurahPanel";
 import ReciterPanel from "./ReciterPanel";
 import QuranSearchPanel from "./QuranSearchPanel";
@@ -119,6 +120,10 @@ function getBismillahLineNumbers(pageData: MushafPageData | null): Set<number> {
 export default function MushafViewer({ locale }: Props) {
   const isAr = locale === "ar";
   const [pageNumber, setPageNumber] = useState(1);
+  const pageNumberRef = useRef(1);
+  useEffect(() => {
+    pageNumberRef.current = pageNumber;
+  }, [pageNumber]);
   const [pageData, setPageData] = useState<MushafPageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [fontReady, setFontReady] = useState(false);
@@ -388,6 +393,34 @@ export default function MushafViewer({ locale }: Props) {
     if (p < 1 || p > TOTAL_MUSHAF_PAGES) return;
     setPageNumber(p);
   }, []);
+
+  // Keeps the displayed Mushaf page synchronized with whichever ayah
+  // Continuous-mode playback is currently on. AudioPlayer owns the
+  // <audio> element entirely and is never remounted by a page change (its
+  // position in the component tree doesn't depend on pageNumber), so
+  // triggering goToPage here never interrupts playback — the audio keeps
+  // running underneath while the page swaps.
+  const handleAudioVerseChange = useCallback(
+    (verseKey: string | null) => {
+      setActiveVerseKey(verseKey);
+      if (!verseKey) return;
+
+      const onCurrentPage = pageData?.verseMeta.some(
+        (v) => v.verseKey === verseKey,
+      );
+      if (onCurrentPage) return;
+
+      getPageForVerseKey(verseKey)
+        .then((page) => {
+          if (page !== pageNumberRef.current) goToPage(page);
+        })
+        .catch(() => {
+          // Lookup failed — audio keeps playing regardless, the page just
+          // won't auto-follow for this particular ayah.
+        });
+    },
+    [pageData, goToPage],
+  );
 
   // ── Fit width / height / screen ──
   const fitWidth = () => setAndPersistZoom(1);
@@ -1011,7 +1044,7 @@ export default function MushafViewer({ locale }: Props) {
           onOpenReciterPanel={openSettingsPanel}
           onNextPage={() => goToPage(pageNumber + 1)}
           onPrevPage={() => goToPage(pageNumber - 1)}
-          onVerseChange={setActiveVerseKey}
+          onVerseChange={handleAudioVerseChange}
           cdnBase={CDN}
         />
       )}

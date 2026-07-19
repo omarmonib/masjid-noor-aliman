@@ -36,6 +36,31 @@ export function setMediaSessionPlaybackState(
   }
 }
 
+/**
+ * Reports current playback position so the OS lock-screen / notification
+ * media widget can show a real, live progress scrubber — this is what
+ * lets "progress preserved in the background" actually be visible to the
+ * user on the lock screen, not just tracked internally.
+ */
+export function setMediaSessionPositionState(
+  duration: number,
+  position: number,
+  playbackRate: number = 1,
+) {
+  if (!isMediaSessionSupported()) return;
+  if (!isFinite(duration) || duration <= 0) return;
+  try {
+    const clampedPosition = Math.min(Math.max(position, 0), duration);
+    navigator.mediaSession!.setPositionState({
+      duration,
+      position: clampedPosition,
+      playbackRate,
+    });
+  } catch {
+    /* setPositionState unsupported in this browser/WebView — ignore */
+  }
+}
+
 export interface MediaSessionHandlers {
   onPlay?: () => void;
   onPause?: () => void;

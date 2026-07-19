@@ -17,12 +17,15 @@ import {
   Settings2,
   RefreshCw,
 } from "lucide-react";
+import { App } from "@capacitor/app";
+import { isNativeApp } from "@/lib/capacitor-adhan";
 import { ayahAudioUrl, type CuratedReciter } from "@/lib/reciters";
 import type { PageWord } from "@/lib/quran-page";
 import { SURAH_NAMES_AR } from "@/lib/surahs";
 import {
   setMediaSessionMetadata,
   setMediaSessionPlaybackState,
+  setMediaSessionPositionState,
   setMediaSessionHandlers,
   clearMediaSession,
 } from "@/lib/media-session";
@@ -81,6 +84,31 @@ async function ensureVerseCounts() {
   await verseCountsPromise;
 }
 
+// ── Background-resilience: persisted playback snapshot ──
+// A safety net only — if Android kills the app process despite the
+// foreground-service background-audio mode (rare, but possible under
+// memory pressure), this records exactly which ayah and timestamp
+// playback had reached, so a future "continue where you left off" action
+// could restore it precisely. It is NEVER used to auto-resume playback on
+// its own (that would mean autoplaying audio without a fresh user gesture
+// after a cold start, which this app deliberately does not do).
+const SESSION_KEY = "quran:playback-session";
+interface PlaybackSession {
+  reciterId: string;
+  surahId: number;
+  ayah: number;
+  currentTime: number;
+  savedAt: number;
+}
+function saveSession(s: PlaybackSession) {
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(s));
+  } catch {
+    /* storage unavailable — safety net only, fine to skip */
+  }
+}
+const SESSION_SAVE_THROTTLE_MS = 3000;
+
 function AudioPlayerImpl(
   {
     locale,
@@ -121,6 +149,8 @@ function AudioPlayerImpl(
   // chain cleanly when the surah/reciter changes or a new chain starts,
   // without racing a stale onended callback into playing the wrong file.
   const chainTokenRef = useRef<{ cancelled: boolean } | null>(null);
+
+  const lastSessionSaveRef = useRef(0);
 
   // ── Sync mode: sequential word playback (unaffected by this redesign —
   // already exact, since Quran Foundation's word audio is timestamped) ──
@@ -215,11 +245,40 @@ function AudioPlayerImpl(
         resumeAyahRef.current.set(resumeKey, ayahNum);
         onVerseChange(`${surahId}:${ayahNum}`);
 
+        // Immediate, un-throttled snapshot at the start of each ayah —
+        // this is the moment most worth capturing accurately.
+        saveSession({
+          reciterId: reciter.id,
+          surahId,
+          ayah: ayahNum,
+          currentTime: 0,
+          savedAt: Date.now(),
+        });
+        lastSessionSaveRef.current = Date.now();
+
         audio.onloadedmetadata = () => {
           if (!token.cancelled) setDuration(audio.duration || 0);
         };
         audio.ontimeupdate = () => {
-          if (!token.cancelled) setCurrentTime(audio.currentTime);
+          if (token.cancelled) return;
+          setCurrentTime(audio.currentTime);
+          setMediaSessionPositionState(
+            audio.duration,
+            audio.currentTime,
+            speed,
+          );
+
+          const now = Date.now();
+          if (now - lastSessionSaveRef.current > SESSION_SAVE_THROTTLE_MS) {
+            lastSessionSaveRef.current = now;
+            saveSession({
+              reciterId: reciter.id,
+              surahId,
+              ayah: ayahNum,
+              currentTime: audio.currentTime,
+              savedAt: now,
+            });
+          }
         };
         audio.onended = () => {
           if (token.cancelled) return;
@@ -368,6 +427,37 @@ function AudioPlayerImpl(
   }, [activeVerseKey, mode, isPlaying, playableWords]);
 
   // ── Lock-screen / background media controls ──
+  const refreshMediaSession = useCallback(() => {
+    const surahName = currentSurahId ? SURAH_NAMES_AR[currentSurahId - 1] : "";
+    setMediaSessionMetadata({
+      title: surahName || (isAr ? "القرآن الكريم" : "Quran"),
+      artist: selectedReciter?.nameAr || "",
+      album: isAr ? "مسجد نور الإيمان" : "Masjid Noor Al-Iman",
+    });
+    setMediaSessionHandlers({
+      onPlay: togglePlay,
+      onPause: togglePlay,
+      onNext: onNextPage,
+      onPrevious: onPrevPage,
+    });
+    if (audioRef.current) {
+      setMediaSessionPositionState(
+        audioRef.current.duration || 0,
+        audioRef.current.currentTime || 0,
+        speed,
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    currentSurahId,
+    selectedReciter?.nameAr,
+    isAr,
+    togglePlay,
+    onNextPage,
+    onPrevPage,
+    speed,
+  ]);
+
   useEffect(() => {
     if (!isPlaying) {
       setMediaSessionPlaybackState("paused");
@@ -377,29 +467,8 @@ function AudioPlayerImpl(
 
     setMediaSessionPlaybackState("playing");
     enableBackgroundAudio();
-
-    const surahName = currentSurahId ? SURAH_NAMES_AR[currentSurahId - 1] : "";
-    setMediaSessionMetadata({
-      title: surahName || (isAr ? "القرآن الكريم" : "Quran"),
-      artist: selectedReciter?.nameAr || "",
-      album: isAr ? "مسجد نور الإيمان" : "Masjid Noor Al-Iman",
-    });
-
-    setMediaSessionHandlers({
-      onPlay: togglePlay,
-      onPause: togglePlay,
-      onNext: onNextPage,
-      onPrevious: onPrevPage,
-    });
-  }, [
-    isPlaying,
-    currentSurahId,
-    selectedReciter?.nameAr,
-    isAr,
-    togglePlay,
-    onNextPage,
-    onPrevPage,
-  ]);
+    refreshMediaSession();
+  }, [isPlaying, refreshMediaSession]);
 
   useEffect(() => {
     return () => {
@@ -407,6 +476,53 @@ function AudioPlayerImpl(
       disableBackgroundAudio();
     };
   }, []);
+
+  // ── App-state transitions (native only): keep recitation genuinely
+  // uninterrupted across screen lock / background, and recover cleanly
+  // if the OS paused audio anyway (some Android versions still do this
+  // under aggressive battery optimization despite the foreground
+  // service). Enabling background-audio mode again on backgrounding is
+  // redundant most of the time (it's already on from the isPlaying
+  // effect above) but costs nothing and closes a race where the app was
+  // backgrounded in the same tick playback started. ──
+  useEffect(() => {
+    if (!isNativeApp()) return;
+
+    const subPromise = App.addListener("appStateChange", ({ isActive }) => {
+      if (!isActive) {
+        if (isPlaying) {
+          enableBackgroundAudio();
+          if (audioRef.current) {
+            saveSession({
+              reciterId: selectedReciter?.id || "",
+              surahId: currentSurahId || 0,
+              ayah: currentAyah || 0,
+              currentTime: audioRef.current.currentTime,
+              savedAt: Date.now(),
+            });
+          }
+        }
+        return;
+      }
+
+      // Returning to the foreground.
+      if (!isPlaying) return;
+      refreshMediaSession();
+      if (audioRef.current && audioRef.current.paused) {
+        audioRef.current.play().catch(() => {});
+      }
+    });
+
+    return () => {
+      subPromise.then((sub) => sub.remove());
+    };
+  }, [
+    isPlaying,
+    currentSurahId,
+    currentAyah,
+    selectedReciter?.id,
+    refreshMediaSession,
+  ]);
 
   return (
     <div
