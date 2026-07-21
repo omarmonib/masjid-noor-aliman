@@ -672,6 +672,21 @@ export default function MushafViewer({ locale }: Props) {
 
   const bismillahLines = getBismillahLineNumbers(pageData);
 
+  // One entry per visual row on the page, in top-to-bottom order — this
+  // is what actually drives the CSS grid below. Using the wrapper divs
+  // (one per Mushaf line, sometimes containing a Bismillah AND a words
+  // row) as grid children would let a Bismillah row hide inside the same
+  // 1fr slot as its line instead of getting its own, so this flattens
+  // both kinds of row into siblings first.
+  type PageRow =
+    | { type: "bismillah" }
+    | { type: "words"; lineKey: number; words: MushafPageData["words"] };
+  const pageRows: PageRow[] = [];
+  for (const line of lines) {
+    if (bismillahLines.has(line.key)) pageRows.push({ type: "bismillah" });
+    pageRows.push({ type: "words", lineKey: line.key, words: line.words });
+  }
+
   const currentSurahId = pageData?.surahIds[0] ?? null;
   const currentSurahName = currentSurahId
     ? SURAH_NAMES_AR[currentSurahId - 1]
@@ -868,140 +883,157 @@ export default function MushafViewer({ locale }: Props) {
               </div>
             ) : (
               <div
-                ref={contentRef}
-                style={{
-                  transform: `scale(${zoom})`,
-                  transformOrigin: "top center",
-                }}
-                className="rounded-2xl overflow-hidden shadow-2xl transition-transform duration-150"
+                className="mx-auto"
+                style={{ width: "100%", maxWidth: "640px" }}
               >
                 <div
-                  className="h-2"
+                  ref={contentRef}
                   style={{
-                    background:
-                      "linear-gradient(to right, #C9A84C, #1B6B4A, #C9A84C)",
+                    transform: `scale(${zoom})`,
+                    transformOrigin: "top center",
+                    // Approximates the King Fahd Complex (Madinah) Mushaf's
+                    // printed page proportions. Locking this via aspect-ratio
+                    // — instead of letting height fall out of stacked line
+                    // blocks — is the actual fix for "page much taller than
+                    // the real Mushaf": the page is now a fixed shape, and
+                    // density is a direct consequence of dividing that fixed
+                    // height by the line count, not a pile of per-line margins.
+                    aspectRatio: "0.66",
                   }}
-                />
-                <div
-                  className="pt-3 pb-1 text-center"
-                  style={{
-                    background:
-                      "linear-gradient(135deg, #fdf8f0 0%, #faf4e8 100%)",
-                  }}
+                  className="mushaf-container-query rounded-2xl overflow-hidden shadow-2xl transition-transform duration-150 flex flex-col"
                 >
-                  <span className="text-xs text-gray-400 font-arabic">
-                    {isAr ? `صفحة ${pageNumber}` : `Page ${pageNumber}`}
-                  </span>
-                </div>
+                  <div
+                    className="h-1.5 flex-shrink-0"
+                    style={{
+                      background:
+                        "linear-gradient(to right, #C9A84C, #1B6B4A, #C9A84C)",
+                    }}
+                  />
+                  <div
+                    className="pt-1.5 pb-0.5 text-center flex-shrink-0"
+                    style={{
+                      background:
+                        "linear-gradient(135deg, #fdf8f0 0%, #faf4e8 100%)",
+                    }}
+                  >
+                    <span className="text-[10px] text-gray-400 font-arabic">
+                      {isAr ? `صفحة ${pageNumber}` : `Page ${pageNumber}`}
+                    </span>
+                  </div>
 
-                <div
-                  className="px-8 pb-6"
-                  dir="rtl"
-                  style={{
-                    background:
-                      "linear-gradient(135deg, #fdf8f0 0%, #faf4e8 100%)",
-                  }}
-                >
-                  {lines.map(({ key, words }) => (
-                    <div key={key}>
-                      {bismillahLines.has(key) && (
+                  {/* One grid row per visual line — this, not line-height or
+                     per-line margins, is what makes the page dense and
+                     evenly filled like the printed Mushaf. */}
+                  <div
+                    dir="rtl"
+                    className="flex-1 min-h-0 px-6"
+                    style={{
+                      display: "grid",
+                      gridTemplateRows: `repeat(${pageRows.length}, 1fr)`,
+                      background:
+                        "linear-gradient(135deg, #fdf8f0 0%, #faf4e8 100%)",
+                    }}
+                  >
+                    {pageRows.map((row, rowIdx) =>
+                      row.type === "bismillah" ? (
                         <div
+                          key={`bismillah-${rowIdx}`}
                           className="flex justify-center items-center"
-                          style={{ minHeight: "40px", marginBottom: "6px" }}
                         >
                           <span
                             style={{
                               fontFamily:
                                 "'UthmanicHafs1Ver18', 'Amiri Quran', serif",
-                              fontSize: "clamp(16px, 4vw, 26px)",
+                              fontSize: "clamp(15px, 4.8cqw, 26px)",
                               color: "#1B6B4A",
                             }}
                           >
                             {BISMILLAH_TEXT}
                           </span>
                         </div>
-                      )}
-                      <div
-                        className="flex justify-center items-baseline flex-wrap"
-                        style={{ minHeight: "48px", marginBottom: "4px" }}
-                      >
-                        {words.map((word) => {
-                          const isEnd = word.charTypeName === "end";
-                          const isActive = word.verseKey === activeVerseKey;
-                          const isSearchHit =
-                            word.verseKey === searchHighlightKey;
+                      ) : (
+                        <div
+                          key={row.lineKey}
+                          className="flex justify-center items-center flex-wrap"
+                        >
+                          {row.words.map((word) => {
+                            const isEnd = word.charTypeName === "end";
+                            const isActive = word.verseKey === activeVerseKey;
+                            const isSearchHit =
+                              word.verseKey === searchHighlightKey;
 
-                          if (isEnd) {
+                            if (isEnd) {
+                              return (
+                                <span
+                                  key={word.id}
+                                  data-verse-key={word.verseKey}
+                                  style={{
+                                    fontFamily:
+                                      "'UthmanicHafs1Ver18', 'Amiri Quran', serif",
+                                    fontSize: "clamp(13px, 5cqw, 24px)",
+                                    color: "#C9A84C",
+                                    margin: "0 2px",
+                                  }}
+                                >
+                                  {word.textQpcHafs}
+                                </span>
+                              );
+                            }
+
                             return (
                               <span
                                 key={word.id}
                                 data-verse-key={word.verseKey}
+                                onPointerDown={(e) =>
+                                  handleWordPointerDown(e, word.verseKey)
+                                }
+                                onPointerUp={handleWordPointerUp}
+                                onPointerLeave={handleWordPointerUp}
+                                onPointerCancel={handleWordPointerUp}
+                                onClick={() => handleWordClick(word.verseKey)}
+                                title={word.verseKey}
+                                className={`cursor-pointer rounded transition-colors select-none ${
+                                  isSearchHit
+                                    ? "bg-[#C9A84C]/40 ring-2 ring-[#C9A84C] animate-pulse"
+                                    : isActive
+                                      ? "bg-[#C9A84C]/25"
+                                      : "hover:bg-primary/10"
+                                }`}
                                 style={{
-                                  fontFamily:
-                                    "'UthmanicHafs1Ver18', 'Amiri Quran', serif",
-                                  fontSize: "clamp(12px, 4.5vw, 28px)",
-                                  color: "#C9A84C",
-                                  margin: "0 2px",
+                                  fontFamily: fontLoadedForPage
+                                    ? `p${word.pageNumber}-v2`
+                                    : "'UthmanicHafs1Ver18', 'Amiri Quran', serif",
+                                  fontSize: "clamp(16px, 5.4cqw, 28px)",
+                                  lineHeight: "1.6",
+                                  color: "#1a1a1a",
+                                  padding: "0 1px",
+                                  WebkitTouchCallout: "none",
                                 }}
+                                dangerouslySetInnerHTML={
+                                  fontLoadedForPage
+                                    ? { __html: word.codeV2 }
+                                    : undefined
+                                }
                               >
-                                {word.textQpcHafs}
+                                {!fontLoadedForPage
+                                  ? word.textQpcHafs
+                                  : undefined}
                               </span>
                             );
-                          }
+                          })}
+                        </div>
+                      ),
+                    )}
+                  </div>
 
-                          return (
-                            <span
-                              key={word.id}
-                              data-verse-key={word.verseKey}
-                              onPointerDown={(e) =>
-                                handleWordPointerDown(e, word.verseKey)
-                              }
-                              onPointerUp={handleWordPointerUp}
-                              onPointerLeave={handleWordPointerUp}
-                              onPointerCancel={handleWordPointerUp}
-                              onClick={() => handleWordClick(word.verseKey)}
-                              title={word.verseKey}
-                              className={`cursor-pointer rounded transition-colors select-none ${
-                                isSearchHit
-                                  ? "bg-[#C9A84C]/40 ring-2 ring-[#C9A84C] animate-pulse"
-                                  : isActive
-                                    ? "bg-[#C9A84C]/25"
-                                    : "hover:bg-primary/10"
-                              }`}
-                              style={{
-                                fontFamily: fontLoadedForPage
-                                  ? `p${word.pageNumber}-v2`
-                                  : "'UthmanicHafs1Ver18', 'Amiri Quran', serif",
-                                fontSize: "clamp(14px, 4vw, 32px)",
-                                lineHeight: "2.2",
-                                color: "#1a1a1a",
-                                padding: "0 1px",
-                                WebkitTouchCallout: "none",
-                              }}
-                              dangerouslySetInnerHTML={
-                                fontLoadedForPage
-                                  ? { __html: word.codeV2 }
-                                  : undefined
-                              }
-                            >
-                              {!fontLoadedForPage
-                                ? word.textQpcHafs
-                                : undefined}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
+                  <div
+                    className="h-1.5 flex-shrink-0"
+                    style={{
+                      background:
+                        "linear-gradient(to right, #C9A84C, #1B6B4A, #C9A84C)",
+                    }}
+                  />
                 </div>
-
-                <div
-                  className="h-2"
-                  style={{
-                    background:
-                      "linear-gradient(to right, #C9A84C, #1B6B4A, #C9A84C)",
-                  }}
-                />
               </div>
             )}
           </div>
@@ -1138,6 +1170,9 @@ export default function MushafViewer({ locale }: Props) {
           font-family: 'UthmanicHafs1Ver18';
           src: url('${CDN}/fonts/quran/hafs/uthmanic_hafs/UthmanicHafs1Ver18.woff2') format('woff2');
           font-display: swap;
+        }
+        .mushaf-container-query {
+          container-type: inline-size;
         }
       `}</style>
     </div>
