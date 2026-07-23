@@ -61,6 +61,13 @@ export interface AudioPlayerHandle {
    * mode has no reciter selected yet (nothing to play).
    */
   startFromVerse: (verseKey: string) => Promise<boolean>;
+  /**
+   * Same accuracy guarantees as startFromVerse, but also forces repeat
+   * mode to "verse" first, so the ayah loops indefinitely instead of
+   * continuing on to the next one. Used by the "Repeat This Ayah" context
+   * menu action.
+   */
+  repeatVerse: (verseKey: string) => Promise<boolean>;
 }
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
@@ -387,7 +394,31 @@ function AudioPlayerImpl(
     [mode, currentSurahId, selectedReciter, playFromVerse, playAyahChain],
   );
 
-  useImperativeHandle(ref, () => ({ startFromVerse }), [startFromVerse]);
+  const repeatVerse = useCallback(
+    async (verseKey: string): Promise<boolean> => {
+      if (!currentSurahId) return false;
+      const [surahStr, ayahStr] = verseKey.split(":");
+      if (parseInt(surahStr, 10) !== currentSurahId) return false;
+
+      if (mode === "sync") {
+        setRepeatMode("verse");
+        playFromVerse(verseKey);
+        return true;
+      }
+
+      if (!selectedReciter) return false;
+      setRepeatMode("verse");
+      const ayah = parseInt(ayahStr, 10);
+      await playAyahChain(selectedReciter, currentSurahId, ayah);
+      return true;
+    },
+    [mode, currentSurahId, selectedReciter, playFromVerse, playAyahChain],
+  );
+
+  useImperativeHandle(ref, () => ({ startFromVerse, repeatVerse }), [
+    startFromVerse,
+    repeatVerse,
+  ]);
 
   const changeSpeed = () => {
     const idx = SPEEDS.indexOf(speed);

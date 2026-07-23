@@ -23,6 +23,7 @@ import {
 } from "@/lib/quran-panel-prefs";
 import { getFocusModePref, setFocusModePref } from "@/lib/quran-focus-prefs";
 import { getPageForVerseKey } from "@/lib/quran-search";
+import { isNativeApp } from "@/lib/capacitor-adhan";
 import SurahPanel from "./SurahPanel";
 import ReciterPanel from "./ReciterPanel";
 import QuranSearchPanel from "./QuranSearchPanel";
@@ -313,6 +314,158 @@ export default function MushafViewer({ locale }: Props) {
     },
     [isAr, openSettingsPanel, showToast],
   );
+
+  const handleRepeatAyah = useCallback(
+    async (verseKey: string) => {
+      const ok = await audioPlayerRef.current?.repeatVerse(verseKey);
+      if (ok === false) {
+        showToast(
+          isAr
+            ? "اختر قارئاً أولاً من إعدادات الاستماع المتواصل"
+            : "Choose a reciter first from continuous-mode settings",
+        );
+        openSettingsPanel();
+      }
+    },
+    [isAr, openSettingsPanel, showToast],
+  );
+
+  // ── Memorization selection (feeds Hifz Mode) ──
+  // A flat set of individually-selected ayah keys. "Add to Memorization
+  // Selection" toggles a single ayah in; Start/End Selection expand a
+  // contiguous range (within the same surah) into this same set, so both
+  // paths — pick individual ayahs, or pick a range like 15–25 — end up in
+  // one consistent structure a future memorization screen can read.
+  const [memorizationSelection, setMemorizationSelection] = useState<
+    Set<string>
+  >(new Set());
+  const [selectionAnchor, setSelectionAnchor] = useState<string | null>(null);
+
+  const handleAddToSelection = useCallback(
+    (verseKey: string) => {
+      setMemorizationSelection((prev) => {
+        const next = new Set(prev);
+        next.add(verseKey);
+        return next;
+      });
+      showToast(
+        isAr
+          ? "أُضيفت الآية إلى تحديد الحفظ"
+          : "Ayah added to memorization selection",
+      );
+    },
+    [isAr, showToast],
+  );
+
+  const handleStartSelection = useCallback(
+    (verseKey: string) => {
+      setSelectionAnchor(verseKey);
+      showToast(
+        isAr ? `بداية التحديد: ${verseKey}` : `Selection starts at ${verseKey}`,
+      );
+    },
+    [isAr, showToast],
+  );
+
+  const handleEndSelection = useCallback(
+    (verseKey: string) => {
+      if (!selectionAnchor) {
+        showToast(
+          isAr ? "اختر بداية التحديد أولاً" : "Choose a selection start first",
+        );
+        return;
+      }
+      const [anchorSurahStr, anchorAyahStr] = selectionAnchor.split(":");
+      const [endSurahStr, endAyahStr] = verseKey.split(":");
+      const anchorSurah = parseInt(anchorSurahStr, 10);
+      const endSurah = parseInt(endSurahStr, 10);
+      if (anchorSurah !== endSurah) {
+        showToast(
+          isAr
+            ? "التحديد يجب أن يكون ضمن نفس السورة"
+            : "Selection must stay within the same surah",
+        );
+        return;
+      }
+      const anchorAyah = parseInt(anchorAyahStr, 10);
+      const endAyah = parseInt(endAyahStr, 10);
+      const lo = Math.min(anchorAyah, endAyah);
+      const hi = Math.max(anchorAyah, endAyah);
+      setMemorizationSelection((prev) => {
+        const next = new Set(prev);
+        for (let a = lo; a <= hi; a++) next.add(`${anchorSurah}:${a}`);
+        return next;
+      });
+      setSelectionAnchor(null);
+      showToast(
+        isAr
+          ? `تم تحديد ${hi - lo + 1} آية للحفظ`
+          : `${hi - lo + 1} ayahs selected for memorization`,
+      );
+    },
+    [isAr, selectionAnchor, showToast],
+  );
+
+  const getAyahText = useCallback(
+    (verseKey: string) => {
+      if (!pageData) return "";
+      return pageData.words
+        .filter((w) => w.verseKey === verseKey && w.charTypeName !== "end")
+        .sort((a, b) => a.position - b.position)
+        .map((w) => w.textQpcHafs)
+        .join(" ");
+    },
+    [pageData],
+  );
+
+  const handleCopyAyah = useCallback(
+    async (verseKey: string) => {
+      const text = getAyahText(verseKey);
+      if (!text) {
+        showToast(isAr ? "تعذّر نسخ الآية" : "Couldn't copy this ayah");
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(`${text} (${verseKey})`);
+        showToast(isAr ? "تم نسخ الآية" : "Ayah copied");
+      } catch {
+        showToast(isAr ? "تعذّر نسخ الآية" : "Couldn't copy this ayah");
+      }
+    },
+    [getAyahText, isAr, showToast],
+  );
+
+  const handleShareAyah = useCallback(
+    async (verseKey: string) => {
+      const text = getAyahText(verseKey);
+      if (!text) {
+        showToast(isAr ? "تعذّر مشاركة الآية" : "Couldn't share this ayah");
+        return;
+      }
+      const shareText = `${text}\n\n﴾ ${verseKey} ﴿`;
+      try {
+        if (isNativeApp()) {
+          const { Share } = await import("@capacitor/share");
+          await Share.share({ text: shareText });
+          return;
+        }
+        if (navigator.share) {
+          await navigator.share({ text: shareText });
+          return;
+        }
+        await navigator.clipboard.writeText(shareText);
+        showToast(isAr ? "تم نسخ الآية للمشاركة" : "Ayah copied for sharing");
+      } catch {
+        // user cancelled the native share sheet — not an error
+      }
+    },
+    [getAyahText, isAr, showToast],
+  );
+
+  const handleBookmarkAyah = useCallback((verseKey: string) => {
+    setActiveVerseKey(verseKey);
+    openMemoDialog();
+  }, []);
 
   // Touch gesture refs
   const touchStartX = useRef<number | null>(null);
@@ -961,6 +1114,9 @@ export default function MushafViewer({ locale }: Props) {
                             const isActive = word.verseKey === activeVerseKey;
                             const isSearchHit =
                               word.verseKey === searchHighlightKey;
+                            const isSelected = memorizationSelection.has(
+                              word.verseKey,
+                            );
 
                             if (isEnd) {
                               return (
@@ -997,7 +1153,9 @@ export default function MushafViewer({ locale }: Props) {
                                     ? "bg-[#C9A84C]/40 ring-2 ring-[#C9A84C] animate-pulse"
                                     : isActive
                                       ? "bg-[#C9A84C]/25"
-                                      : "hover:bg-primary/10"
+                                      : isSelected
+                                        ? "bg-blue-400/20 ring-1 ring-blue-400/50"
+                                        : "hover:bg-primary/10"
                                 }`}
                                 style={{
                                   fontFamily: fontLoadedForPage
@@ -1103,6 +1261,13 @@ export default function MushafViewer({ locale }: Props) {
           y={contextMenu.y}
           locale={locale}
           onStartFromHere={() => handleStartFromHere(contextMenu.verseKey)}
+          onRepeatAyah={() => handleRepeatAyah(contextMenu.verseKey)}
+          onAddToSelection={() => handleAddToSelection(contextMenu.verseKey)}
+          onStartSelection={() => handleStartSelection(contextMenu.verseKey)}
+          onEndSelection={() => handleEndSelection(contextMenu.verseKey)}
+          onCopyAyah={() => handleCopyAyah(contextMenu.verseKey)}
+          onShareAyah={() => handleShareAyah(contextMenu.verseKey)}
+          onBookmark={() => handleBookmarkAyah(contextMenu.verseKey)}
           onClose={() => setContextMenu(null)}
         />
       )}
