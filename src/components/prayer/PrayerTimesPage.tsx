@@ -4,6 +4,7 @@ import { useState } from "react";
 import DailyPrayers from "@/components/prayer/DailyPrayers";
 import MonthlyTable from "@/components/prayer/MonthlyTable";
 import QiblaCompass from "@/components/prayer/QiblaCompass";
+import PageHeroHeader from "@/components/layout/PageHeroHeader";
 
 interface Props {
   locale: string;
@@ -23,18 +24,20 @@ export default function PrayerTimesPage({ locale }: Props) {
 
   return (
     <main className="min-h-screen bg-surface">
-      {/* Header */}
-      <div className="bg-gradient-to-br from-[#0D3D28] to-[#1B6B4A] py-12 px-4 text-center text-white">
-        <p className="font-arabic text-[#C9A84C] text-lg mb-2">
-          حَافِظُوا عَلَى الصَّلَوَاتِ وَالصَّلَاةِ الْوُسْطَىٰ
-        </p>
-        <h1 className="font-arabic text-4xl font-bold mb-2">
-          {isAr ? "مواقيت الصلاة" : "Prayer Times"}
-        </h1>
-        <p className="text-white/60 font-arabic text-sm">
-          {isAr ? "بلبيس — محافظة الشرقية" : "Belbeis — Al-Sharqia, Egypt"}
-        </p>
-      </div>
+      <PageHeroHeader>
+        {/* Header */}
+        <div className="bg-gradient-to-br from-[#0D3D28] to-[#1B6B4A] py-12 px-4 text-center text-white">
+          <p className="font-arabic text-[#C9A84C] text-lg mb-2">
+            حَافِظُوا عَلَى الصَّلَوَاتِ وَالصَّلَاةِ الْوُسْطَىٰ
+          </p>
+          <h1 className="font-arabic text-4xl font-bold mb-2">
+            {isAr ? "مواقيت الصلاة" : "Prayer Times"}
+          </h1>
+          <p className="text-white/60 font-arabic text-sm">
+            {isAr ? "بلبيس — محافظة الشرقية" : "Belbeis — Al-Sharqia, Egypt"}
+          </p>
+        </div>
+      </PageHeroHeader>
 
       {/* Tabs */}
       <div className="bg-white border-b border-gray-100 sticky top-16 z-30 shadow-sm">

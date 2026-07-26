@@ -1,5 +1,6 @@
 import { getAllAdhkar } from "@/lib/adhkar";
 import AdhkarCategoryCard from "@/components/adhkar/AdhkarCategoryCard";
+import PageHeroHeader from "@/components/layout/PageHeroHeader";
 
 export default async function AdhkarPage({
   params,
@@ -12,23 +13,25 @@ export default async function AdhkarPage({
 
   return (
     <main className="min-h-screen bg-surface">
-      {/* Header */}
-      <div className="bg-gradient-to-br from-[#0D3D28] to-[#1B6B4A] py-14 px-4 text-center text-white">
-        <p className="font-arabic text-[#C9A84C] text-lg mb-3">
-          وَاذْكُرُوا اللَّهَ كَثِيرًا لَّعَلَّكُمْ تُفْلِحُونَ
-        </p>
-        <h1 className="font-arabic text-4xl font-bold mb-2">
-          {isAr ? "الأذكار" : "Adhkar"}
-        </h1>
-        <p className="text-white/60 font-arabic text-sm mb-3">
-          {isAr ? "أذكار من كتاب حصن المسلم" : "From Hisn Al-Muslim"}
-        </p>
-        <div className="text-white/40 text-sm font-arabic">
-          {categories.length} {isAr ? "باب" : "categories"} ·{" "}
-          {categories.reduce((acc, c) => acc + c.adhkar.length, 0)}{" "}
-          {isAr ? "ذكر" : "adhkar"}
+      <PageHeroHeader>
+        {/* Header */}
+        <div className="bg-gradient-to-br from-[#0D3D28] to-[#1B6B4A] py-14 px-4 text-center text-white">
+          <p className="font-arabic text-[#C9A84C] text-lg mb-3">
+            وَاذْكُرُوا اللَّهَ كَثِيرًا لَّعَلَّكُمْ تُفْلِحُونَ
+          </p>
+          <h1 className="font-arabic text-4xl font-bold mb-2">
+            {isAr ? "الأذكار" : "Adhkar"}
+          </h1>
+          <p className="text-white/60 font-arabic text-sm mb-3">
+            {isAr ? "أذكار من كتاب حصن المسلم" : "From Hisn Al-Muslim"}
+          </p>
+          <div className="text-white/40 text-sm font-arabic">
+            {categories.length} {isAr ? "باب" : "categories"} ·{" "}
+            {categories.reduce((acc, c) => acc + c.adhkar.length, 0)}{" "}
+            {isAr ? "ذكر" : "adhkar"}
+          </div>
         </div>
-      </div>
+      </PageHeroHeader>
 
       {/* Grid */}
       <div className="max-w-4xl mx-auto px-4 py-10">

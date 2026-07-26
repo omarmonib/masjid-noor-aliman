@@ -9,23 +9,36 @@ interface Props {
     ayah: number;
   };
   locale: string;
+  /** When true, omits the English translation line — used by the native
+   * Home screen's compact Ayah-of-the-Day expand, per the requirement
+   * that native shows Arabic only. Web always passes this as false
+   * (the default), so the website's output is completely unchanged. */
+  hideTranslation?: boolean;
 }
 
 const BISMILLAH = "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ";
 
-export default function DailyVerseSection({ verse, locale }: Props) {
+export default function DailyVerseSection({
+  verse,
+  locale,
+  hideTranslation = false,
+}: Props) {
   const isAr = locale === "ar";
 
+  // Surah At-Tawbah (9) is the one surah traditionally recited without a
+  // preceding Bismillah, so skip it there even though this is just a home
+  // page snippet rather than the full Mushaf reader.
   const showBismillah = verse.surah !== "التوبة";
 
   const shareText = [
     showBismillah ? BISMILLAH : null,
     verse.arabic,
+    hideTranslation ? null : verse.english,
     `﴾ ${isAr ? verse.surah : verse.surahEn} : ${verse.ayah} ﴿`,
   ]
     .filter(Boolean)
     .join("\n\n");
-    
+
   return (
     <div className="relative bg-white/5 border border-white/10 rounded-3xl overflow-hidden backdrop-blur-sm">
       <div className="absolute top-4 right-8 text-[#C9A84C]/20 font-arabic text-8xl leading-none select-none pointer-events-none">

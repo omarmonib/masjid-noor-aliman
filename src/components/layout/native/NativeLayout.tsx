@@ -5,6 +5,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import { usePathname } from "next/navigation";
 import NativeAppBar from "./NativeAppBar";
 import NativeBottomNav from "./NativeBottomNav";
+import {
+  NativeChromeProvider,
+  useNativeChrome,
+} from "@/lib/native-chrome-context";
 
 /**
  * The native (Capacitor) app shell — Material Design 3–inspired,
@@ -22,6 +26,12 @@ import NativeBottomNav from "./NativeBottomNav";
  * pathname, so navigating between tabs/pages produces a subtle native-
  * feeling fade/slide instead of an abrupt swap — without needing to touch
  * the page components themselves.
+ *
+ * Bottom Nav visibility: wrapped in NativeChromeProvider so any page deep
+ * in the tree (currently only MushafViewer's Focus Mode) can temporarily
+ * hide the fixed Bottom Nav via useNativeChrome(). Every other page never
+ * touches this, so the bar stays visible by default everywhere — only
+ * Focus Mode is allowed to hide it, per spec.
  */
 
 interface RouteAppBarConfig {
@@ -102,9 +112,10 @@ interface Props {
   children: React.ReactNode;
 }
 
-export default function NativeLayout({ locale, children }: Props) {
+function NativeLayoutInner({ locale, children }: Props) {
   const isAr = locale === "ar";
   const pathname = usePathname();
+  const { hideBottomNav } = useNativeChrome();
 
   const routeConfig = resolveAppBarConfig(pathname, locale);
 
@@ -130,15 +141,18 @@ export default function NativeLayout({ locale, children }: Props) {
       />
 
       {/* Scrollable content area. Top padding clears the fixed App Bar
-         (56px + safe-area-inset-top); bottom padding clears the fixed
-         Bottom Nav (64px + safe-area-inset-bottom) so content never sits
-         underneath either fixed bar, and native momentum scrolling is
-         used instead of any custom scroll container. */}
+         (56px + safe-area-inset-top). Bottom padding clears the fixed
+         Bottom Nav (64px + safe-area-inset-bottom) ONLY when it's
+         actually visible — when hideBottomNav is true (Focus Mode),
+         content can use that reclaimed space instead of leaving an
+         empty gap where a hidden bar used to be. */}
       <main
         className="native-scroll"
         style={{
           paddingTop: "calc(56px + env(safe-area-inset-top))",
-          paddingBottom: "calc(64px + env(safe-area-inset-bottom))",
+          paddingBottom: hideBottomNav
+            ? "env(safe-area-inset-bottom)"
+            : "calc(64px + env(safe-area-inset-bottom))",
           minHeight: "100vh",
         }}
       >
@@ -155,7 +169,15 @@ export default function NativeLayout({ locale, children }: Props) {
         </AnimatePresence>
       </main>
 
-      <NativeBottomNav locale={locale} />
+      {!hideBottomNav && <NativeBottomNav locale={locale} />}
     </div>
+  );
+}
+
+export default function NativeLayout({ locale, children }: Props) {
+  return (
+    <NativeChromeProvider>
+      <NativeLayoutInner locale={locale} children={children} />
+    </NativeChromeProvider>
   );
 }

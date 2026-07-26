@@ -18,13 +18,20 @@ import {
  * Design 3 style, 5 destinations, with a spring-animated active
  * indicator that slides between tabs instead of just recoloring them.
  *
+ * RTL FIX: when dir="rtl", the browser reverses the *visual* order of
+ * flex children (tab index 0 renders on the right, not the left), but
+ * raw CSS `left` positioning is always relative to the physical left
+ * edge regardless of `dir`. The sliding pill was previously always
+ * positioned via `left`, so in RTL it moved in the opposite direction
+ * from the icons/labels it was supposed to sit behind. The fix: in RTL,
+ * position the pill via `right` instead, using the same index math —
+ * this now tracks the same visual reversal the flex layout already
+ * applies to the tabs themselves.
+ *
  * EXTENSIBILITY: every tab is a plain object in NAV_TABS below. Adding
  * a future tab (Qibla, Favorites, Downloads, Profile) means adding one
  * object here — no changes to the rendering, animation, or active-state
- * logic in this component. If the list ever grows past 5 items, this
- * same array can drive an overflow menu without restructuring anything
- * that depends on it (NativeLayout only ever reads NAV_TABS.length for
- * bottom-padding math, so it stays correct automatically).
+ * logic in this component.
  */
 
 interface NavTab {
@@ -95,6 +102,8 @@ export default function NativeBottomNav({ locale }: Props) {
     return bestIndex;
   })();
 
+  const indicatorOffset = `${(activeIndex * 100) / NAV_TABS.length}%`;
+
   return (
     <nav
       className="fixed bottom-0 inset-x-0 z-40 bg-white border-t border-gray-100"
@@ -106,15 +115,16 @@ export default function NativeBottomNav({ locale }: Props) {
       <div className="relative flex items-stretch h-16">
         {/* Sliding active indicator — a soft pill behind the active tab's
            icon, spring-animated between positions rather than an abrupt
-           jump. Positioned via percentage math so it stays correct at
-           any screen width without measuring DOM nodes. */}
+           jump. Positioned via `right` in RTL / `left` in LTR so it
+           tracks the same visual direction the flex layout reverses to
+           under dir="rtl". */}
         {activeIndex >= 0 && (
           <motion.div
             className="absolute top-1.5 h-8 rounded-full bg-primary/10"
             style={{ width: `${100 / NAV_TABS.length}%` }}
-            animate={{
-              left: `${(activeIndex * 100) / NAV_TABS.length}%`,
-            }}
+            animate={
+              isAr ? { right: indicatorOffset } : { left: indicatorOffset }
+            }
             transition={{ type: "spring", stiffness: 380, damping: 32 }}
           />
         )}

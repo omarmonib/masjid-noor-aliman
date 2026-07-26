@@ -1,6 +1,8 @@
 import DailyVerseSection from "@/components/sections/DailyVerseSection";
 import DailyHadithSection from "@/components/sections/DailyHadithSection";
 import Hero from "@/components/layout/Hero";
+import HomeContent from "@/components/home/HomeContent";
+import PageHeroHeader from "@/components/layout/PageHeroHeader";
 import Link from "next/link";
 import { getDailyVerse, getDailyHadith } from "@/lib/quran";
 
@@ -79,118 +81,154 @@ export default async function HomePage({
   ];
 
   return (
-    <main>
-      <Hero locale={locale} />
+    <>
+      {/* Native app: compact prayer widget + tap-to-expand Ayah/Hadith
+         preview cards, no hero, no services grid, no footer. Renders
+         nothing on web (HomeContent internally no-ops there). */}
+      <HomeContent locale={locale} verse={verse} hadith={hadith} />
 
-      {/* Services grid */}
-      <section className="bg-surface py-12 px-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-8">
-            <h2 className="font-arabic text-2xl font-bold text-gray-800 mb-2">
-              {isAr ? "خدمات المسجد" : "Mosque Services"}
-            </h2>
-            <div
-              className="w-16 h-1 rounded-full mx-auto"
-              style={{
-                background: "linear-gradient(to right, #1B6B4A, #C9A84C)",
-              }}
-            />
-          </div>
-          {/* 2 cols on mobile, 3 on md+ — always even */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {features.map((f) => (
-              <Link
-                key={f.href}
-                href={f.href}
-                className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:border-primary/30 hover:shadow-md transition-all group text-center"
-              >
-                <div className="text-4xl mb-3">{f.icon}</div>
-                <h3 className="font-arabic font-bold text-gray-800 group-hover:text-primary transition-colors mb-1 text-sm md:text-base">
-                  {isAr ? f.labelAr : f.labelEn}
-                </h3>
-                <p className="font-arabic text-xs text-gray-400">
-                  {isAr ? f.descAr : f.descEn}
+      {/* Web/desktop: completely unchanged from before this project.
+         Hero is hidden on native via its own internal PageHeroHeader.
+         The services grid, full daily sections, and footer below are
+         now each wrapped in PageHeroHeader too, so native shows none of
+         this — only HomeContent above — while web renders every one of
+         these sections exactly as it always has. */}
+      <main>
+        <Hero locale={locale} />
+
+        <PageHeroHeader>
+          {/* Services grid */}
+          <section className="bg-surface py-12 px-4">
+            <div className="max-w-4xl mx-auto">
+              <div className="text-center mb-8">
+                <h2 className="font-arabic text-2xl font-bold text-gray-800 mb-2">
+                  {isAr ? "خدمات المسجد" : "Mosque Services"}
+                </h2>
+                <div
+                  className="w-16 h-1 rounded-full mx-auto"
+                  style={{
+                    background: "linear-gradient(to right, #1B6B4A, #C9A84C)",
+                  }}
+                />
+              </div>
+              {/* 2 cols on mobile, 3 on md+ — always even */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {features.map((f) => (
+                  <Link
+                    key={f.href}
+                    href={f.href}
+                    className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:border-primary/30 hover:shadow-md transition-all group text-center"
+                  >
+                    <div className="text-4xl mb-3">{f.icon}</div>
+                    <h3 className="font-arabic font-bold text-gray-800 group-hover:text-primary transition-colors mb-1 text-sm md:text-base">
+                      {isAr ? f.labelAr : f.labelEn}
+                    </h3>
+                    <p className="font-arabic text-xs text-gray-400">
+                      {isAr ? f.descAr : f.descEn}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </section>
+        </PageHeroHeader>
+
+        <PageHeroHeader>
+          {/* Daily Verse */}
+          <section
+            className="py-12 px-4"
+            style={{ background: "linear-gradient(135deg, #0D3D28, #1B6B4A)" }}
+          >
+            <div className="max-w-3xl mx-auto">
+              <div className="text-center mb-6">
+                <p
+                  className="font-arabic text-sm tracking-widest mb-1"
+                  style={{ color: "#C9A84C" }}
+                >
+                  ✦ {isAr ? "آية اليوم" : "Verse of the Day"} ✦
                 </p>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
+              </div>
+              <DailyVerseSection verse={verse} locale={locale} />
+            </div>
+          </section>
+        </PageHeroHeader>
 
-      {/* Daily Verse */}
-      <section
-        className="py-12 px-4"
-        style={{ background: "linear-gradient(135deg, #0D3D28, #1B6B4A)" }}
-      >
-        <div className="max-w-3xl mx-auto">
-          <div className="text-center mb-6">
-            <p
-              className="font-arabic text-sm tracking-widest mb-1"
-              style={{ color: "#C9A84C" }}
-            >
-              ✦ {isAr ? "آية اليوم" : "Verse of the Day"} ✦
-            </p>
-          </div>
-          <DailyVerseSection verse={verse} locale={locale} />
-        </div>
-      </section>
+        <PageHeroHeader>
+          {/* Daily Hadith */}
+          <section className="bg-surface py-12 px-4">
+            <div className="max-w-3xl mx-auto">
+              <div className="text-center mb-6">
+                <p className="font-arabic text-sm tracking-widest mb-1 text-primary">
+                  ✦ {isAr ? "حديث اليوم" : "Hadith of the Day"} ✦
+                </p>
+              </div>
+              <DailyHadithSection hadith={hadith} locale={locale} />
+            </div>
+          </section>
+        </PageHeroHeader>
 
-      {/* Daily Hadith */}
-      <section className="bg-surface py-12 px-4">
-        <div className="max-w-3xl mx-auto">
-          <div className="text-center mb-6">
-            <p className="font-arabic text-sm tracking-widest mb-1 text-primary">
-              ✦ {isAr ? "حديث اليوم" : "Hadith of the Day"} ✦
-            </p>
-          </div>
-          <DailyHadithSection hadith={hadith} locale={locale} />
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer
-        style={{ background: "linear-gradient(135deg, #0D3D28, #1B6B4A)" }}
-        className="text-white py-10 px-4"
-      >
-        <div className="max-w-4xl mx-auto text-center space-y-4">
-          <div className="text-3xl">🕌</div>
-          <h3 className="font-arabic text-xl font-bold">
-            {isAr ? "مسجد نور الإيمان" : "Masjid Noor Al-Iman"}
-          </h3>
-          <p className="font-arabic text-white/60 text-sm">
-            {isAr
-              ? "بلبيس — محافظة الشرقية — مصر"
-              : "Belbeis — Al-Sharqia — Egypt"}
-          </p>
-          <div className="flex justify-center gap-4 flex-wrap pt-2">
-            {[
-              { href: `/${locale}/quran`, label: isAr ? "القرآن" : "Quran" },
-              {
-                href: `/${locale}/prayer-times`,
-                label: isAr ? "الصلاة" : "Prayer Times",
-              },
-              { href: `/${locale}/adhkar`, label: isAr ? "الأذكار" : "Adhkar" },
-              { href: `/${locale}/hadith`, label: isAr ? "الحديث" : "Hadith" },
-              { href: `/${locale}/mosque`, label: isAr ? "المسجد" : "Mosque" },
-              { href: `/${locale}/radio`, label: isAr ? "الإذاعة" : "Radio" },
-            ].map((l) => (
-              <Link
-                key={l.href}
-                href={l.href}
-                className="font-arabic text-sm text-white/70 hover:text-white transition-colors"
-              >
-                {l.label}
-              </Link>
-            ))}
-          </div>
-          <p className="font-arabic text-white/30 text-xs pt-4">
-            © {new Date().getFullYear()}{" "}
-            {isAr
-              ? "مسجد نور الإيمان — جميع الحقوق محفوظة"
-              : "Masjid Noor Al-Iman — All Rights Reserved"}
-          </p>
-        </div>
-      </footer>
-    </main>
+        <PageHeroHeader>
+          {/* Footer */}
+          <footer
+            style={{ background: "linear-gradient(135deg, #0D3D28, #1B6B4A)" }}
+            className="text-white py-10 px-4"
+          >
+            <div className="max-w-4xl mx-auto text-center space-y-4">
+              <div className="text-3xl">🕌</div>
+              <h3 className="font-arabic text-xl font-bold">
+                {isAr ? "مسجد نور الإيمان" : "Masjid Noor Al-Iman"}
+              </h3>
+              <p className="font-arabic text-white/60 text-sm">
+                {isAr
+                  ? "بلبيس — محافظة الشرقية — مصر"
+                  : "Belbeis — Al-Sharqia — Egypt"}
+              </p>
+              <div className="flex justify-center gap-4 flex-wrap pt-2">
+                {[
+                  {
+                    href: `/${locale}/quran`,
+                    label: isAr ? "القرآن" : "Quran",
+                  },
+                  {
+                    href: `/${locale}/prayer-times`,
+                    label: isAr ? "الصلاة" : "Prayer Times",
+                  },
+                  {
+                    href: `/${locale}/adhkar`,
+                    label: isAr ? "الأذكار" : "Adhkar",
+                  },
+                  {
+                    href: `/${locale}/hadith`,
+                    label: isAr ? "الحديث" : "Hadith",
+                  },
+                  {
+                    href: `/${locale}/mosque`,
+                    label: isAr ? "المسجد" : "Mosque",
+                  },
+                  {
+                    href: `/${locale}/radio`,
+                    label: isAr ? "الإذاعة" : "Radio",
+                  },
+                ].map((l) => (
+                  <Link
+                    key={l.href}
+                    href={l.href}
+                    className="font-arabic text-sm text-white/70 hover:text-white transition-colors"
+                  >
+                    {l.label}
+                  </Link>
+                ))}
+              </div>
+              <p className="font-arabic text-white/30 text-xs pt-4">
+                © {new Date().getFullYear()}{" "}
+                {isAr
+                  ? "مسجد نور الإيمان — جميع الحقوق محفوظة"
+                  : "Masjid Noor Al-Iman — All Rights Reserved"}
+              </p>
+            </div>
+          </footer>
+        </PageHeroHeader>
+      </main>
+    </>
   );
 }
