@@ -1,74 +1,28 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
+import { useState } from "react";
 import { Settings, Play, Square } from "lucide-react";
 import {
   ADHAN_VOICES,
-  getSelectedVoice,
-  setSelectedVoice,
   isNativeApp,
   type AdhanVoiceId,
 } from "@/lib/capacitor-adhan";
-
-// Preview clips are hosted on archive.org (not bundled in the repo/APK) —
-// only the native notification sound needs a physical file on-device.
-// Replace {identifier} with your actual archive.org item identifier.
-const PREVIEW_BASE = "https://archive.org/download/adhan_202607";
-
-type PreviewKey = `${AdhanVoiceId}:regular` | `${AdhanVoiceId}:fajr`;
+import {
+  useAdhanSettings,
+  type PreviewVariant,
+} from "@/hooks/useAdhanSettings";
 
 export default function AdhanSettingsButton({ locale }: { locale: string }) {
   const isAr = locale === "ar";
   const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState<AdhanVoiceId>(getSelectedVoice());
-  const [playing, setPlaying] = useState<PreviewKey | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  useEffect(() => {
-    return () => {
-      audioRef.current?.pause();
-    };
-  }, []);
+  const { selectedVoice, selectVoice, previewingKey, preview, stopPreview } =
+    useAdhanSettings();
 
   // Voice choice only matters on native — web push has no custom sound.
   if (!isNativeApp()) return null;
 
-  const choose = (id: AdhanVoiceId) => {
-    setSelected(id);
-    setSelectedVoice(id);
-  };
-
-  const stopPreview = () => {
-    audioRef.current?.pause();
-    audioRef.current = null;
-    setPlaying(null);
-  };
-
-  const preview = (voiceId: AdhanVoiceId, variant: "regular" | "fajr") => {
-    const key: PreviewKey = `${voiceId}:${variant}`;
-
-    if (playing === key) {
-      stopPreview();
-      return;
-    }
-
-    audioRef.current?.pause();
-
-    const voice = ADHAN_VOICES.find((v) => v.id === voiceId)!;
-    const filename = variant === "fajr" ? voice.fajrFile : voice.file;
-    const audio = new Audio(`${PREVIEW_BASE}/${filename}`);
-    audio.onended = () => setPlaying(null);
-    audio.onerror = () => {
-      setPlaying(null);
-      alert(
-        isAr
-          ? "تعذّر تشغيل المعاينة — تحقق من الرابط"
-          : "Preview failed to load — check the URL",
-      );
-    };
-    audioRef.current = audio;
-    audio.play().catch(() => setPlaying(null));
-    setPlaying(key);
+  const handlePreview = (voiceId: AdhanVoiceId, variant: PreviewVariant) => {
+    preview(voiceId, variant, isAr);
   };
 
   const handleClose = () => {
@@ -103,9 +57,9 @@ export default function AdhanSettingsButton({ locale }: { locale: string }) {
 
             <div className="space-y-2 mb-5">
               {ADHAN_VOICES.map((v) => {
-                const isSelected = selected === v.id;
-                const regularKey: PreviewKey = `${v.id}:regular`;
-                const fajrKey: PreviewKey = `${v.id}:fajr`;
+                const isSelected = selectedVoice === v.id;
+                const regularKey = `${v.id}:regular` as const;
+                const fajrKey = `${v.id}:fajr` as const;
 
                 return (
                   <div
@@ -117,7 +71,7 @@ export default function AdhanSettingsButton({ locale }: { locale: string }) {
                     }`}
                   >
                     <button
-                      onClick={() => choose(v.id)}
+                      onClick={() => selectVoice(v.id)}
                       className="w-full flex items-center justify-between px-4 py-3 text-right"
                     >
                       <span
@@ -134,10 +88,10 @@ export default function AdhanSettingsButton({ locale }: { locale: string }) {
 
                     <div className="flex items-center gap-2 px-4 pb-3">
                       <button
-                        onClick={() => preview(v.id, "regular")}
+                        onClick={() => handlePreview(v.id, "regular")}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:border-primary/40 hover:text-primary transition-colors text-xs font-arabic"
                       >
-                        {playing === regularKey ? (
+                        {previewingKey === regularKey ? (
                           <Square size={12} />
                         ) : (
                           <Play size={12} />
@@ -145,10 +99,10 @@ export default function AdhanSettingsButton({ locale }: { locale: string }) {
                         {isAr ? "استماع" : "Preview"}
                       </button>
                       <button
-                        onClick={() => preview(v.id, "fajr")}
+                        onClick={() => handlePreview(v.id, "fajr")}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:border-primary/40 hover:text-primary transition-colors text-xs font-arabic"
                       >
-                        {playing === fajrKey ? (
+                        {previewingKey === fajrKey ? (
                           <Square size={12} />
                         ) : (
                           <Play size={12} />

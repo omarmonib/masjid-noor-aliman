@@ -1,76 +1,71 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { Bell, BellOff, BellRing } from "lucide-react";
-import {
-  subscribeToPush,
-  unsubscribeFromPush,
-  getPushSubscriptionStatus,
-} from "./push-client";
-import {
-  isNativeApp,
-  isNativeAdhanEnabled,
-  toggleNativeAdhan,
-} from "@/lib/capacitor-adhan";
+import { isNativeApp } from "@/lib/capacitor-adhan";
+import { useAdhanSettings } from "@/hooks/useAdhanSettings";
+import { usePushSubscription } from "@/hooks/usePushSubscription";
 
+/**
+ * Navbar bell icon — toggles native Adhan notifications on native, or web
+ * push subscription on web. Both branches consume the shared hooks
+ * (useAdhanSettings / usePushSubscription) instead of managing their own
+ * status/busy state inline, so this component is purely presentational:
+ * it renders the bell and calls the appropriate hook's toggle function.
+ */
 export default function NotificationBell({ locale }: { locale: string }) {
   const isAr = locale === "ar";
   const native = isNativeApp();
 
-  const [status, setStatus] = useState<
-    "loading" | "unsupported" | "denied" | "subscribed" | "unsubscribed"
-  >("loading");
-  const [busy, setBusy] = useState(false);
+  const adhan = useAdhanSettings();
+  const push = usePushSubscription(locale);
 
-  useEffect(() => {
-    if (native) {
-      setStatus(isNativeAdhanEnabled() ? "subscribed" : "unsubscribed");
-    } else {
-      getPushSubscriptionStatus().then(setStatus);
-    }
-  }, [native]);
+  // Unified view of "is this on" and "is something in-flight" regardless
+  // of which branch is active, so the render logic below doesn't need to
+  // branch a second time.
+  const isOn = native ? adhan.enabled : push.status === "subscribed";
+  const busy = native ? adhan.busy : push.busy;
+  const unsupported = !native && push.status === "unsupported";
 
   const handleClick = async () => {
-    if (busy) return;
-    setBusy(true);
-
     if (native) {
-      const next = status !== "subscribed";
-      await toggleNativeAdhan(next, isAr);
-      setStatus(next ? "subscribed" : "unsubscribed");
-      setBusy(false);
+      await adhan.toggleEnabled(isAr);
       return;
     }
 
-    if (status === "subscribed") {
-      await unsubscribeFromPush();
-      setStatus("unsubscribed");
-    } else if (status === "unsubscribed") {
-      const ok = await subscribeToPush();
-      setStatus(ok ? "subscribed" : "denied");
-    } else if (status === "denied") {
+    if (push.status === "denied") {
       alert(
         isAr
           ? "الإشعارات محظورة من إعدادات المتصفح. يرجى تفعيلها من إعدادات الموقع."
           : "Notifications are blocked in your browser. Please enable them in site settings.",
       );
+      return;
     }
 
-    setBusy(false);
+    await push.toggle();
   };
 
-  if (status === "loading") return null;
-  if (!native && status === "unsupported") return null;
+  if (!native && push.busy && push.status === "unsubscribed") {
+    // Initial status check still in flight on first mount — render
+    // nothing rather than flashing an incorrect default state, matching
+    // the original component's "loading" behavior.
+    return null;
+  }
+  if (unsupported) return null;
 
-  const Icon =
-    status === "subscribed" ? BellRing : status === "denied" ? BellOff : Bell;
+  const Icon = isOn
+    ? BellRing
+    : native
+      ? Bell
+      : push.status === "denied"
+        ? BellOff
+        : Bell;
 
   return (
     <button
       onClick={handleClick}
       disabled={busy}
       title={
-        status === "subscribed"
+        isOn
           ? isAr
             ? "تنبيه الصلاة مفعّل — اضغط للإيقاف"
             : "Prayer Alert On — tap to turn off"
@@ -79,13 +74,13 @@ export default function NotificationBell({ locale }: { locale: string }) {
             : "Alert Off — tap to enable"
       }
       className={`flex items-center gap-1.5 px-2 h-9 rounded-full transition-colors disabled:opacity-50 ${
-        status === "subscribed"
+        isOn
           ? "bg-primary/10 text-primary"
           : "text-gray-500 hover:bg-gray-50 hover:text-primary"
       }`}
     >
       <Icon size={18} />
-      {status === "subscribed" && (
+      {isOn && (
         <span className="font-arabic text-xs font-bold whitespace-nowrap">
           {isAr ? "مفعّل" : "Activated"}
         </span>

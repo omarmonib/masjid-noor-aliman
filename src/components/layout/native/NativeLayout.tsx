@@ -177,7 +177,7 @@ function NativeLayoutInner({ locale, children }: Props) {
 export default function NativeLayout({ locale, children }: Props) {
   return (
     <NativeChromeProvider>
-      <NativeLayoutInner locale={locale} children={children} />
+      <NativeLayoutInner locale={locale}>{children}</NativeLayoutInner>
     </NativeChromeProvider>
   );
 }

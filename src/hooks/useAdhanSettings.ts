@@ -38,6 +38,7 @@ export type PreviewKey = `${AdhanVoiceId}:${PreviewVariant}`;
 
 export function useAdhanSettings() {
   const [enabled, setEnabled] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [selectedVoice, setSelectedVoiceState] =
     useState<AdhanVoiceId>(getSelectedVoice());
   const [previewingKey, setPreviewingKey] = useState<PreviewKey | null>(null);
@@ -93,15 +94,22 @@ export function useAdhanSettings() {
 
   const toggleEnabled = useCallback(
     async (isAr: boolean) => {
-      const next = !enabled;
-      await toggleNativeAdhan(next, isAr);
-      setEnabled(next);
+      if (busy) return;
+      setBusy(true);
+      try {
+        const next = !enabled;
+        await toggleNativeAdhan(next, isAr);
+        setEnabled(next);
+      } finally {
+        setBusy(false);
+      }
     },
-    [enabled],
+    [enabled, busy],
   );
 
   return {
     enabled,
+    busy,
     toggleEnabled,
     selectedVoice,
     selectVoice,
