@@ -22,6 +22,16 @@ import {
   setPanelHiddenPref,
 } from "@/lib/quran-panel-prefs";
 import { getFocusModePref, setFocusModePref } from "@/lib/quran-focus-prefs";
+import {
+  getLastPage,
+  setLastPage,
+  getZoom,
+  setZoom as persistZoom,
+  getSelectedReciter,
+  setSelectedReciter as persistSelectedReciter,
+  MIN_ZOOM,
+  MAX_ZOOM,
+} from "@/lib/quran-reader-prefs";
 import { getPageForVerseKey } from "@/lib/quran-search";
 import { isNativeApp } from "@/lib/capacitor-adhan";
 import SurahPanel from "./SurahPanel";
@@ -44,11 +54,6 @@ interface Props {
 }
 
 const CDN = "https://verses.quran.foundation";
-const LAST_PAGE_KEY = "quran:last-page";
-const ZOOM_KEY = "quran:zoom";
-const RECITER_KEY = "quran:selected-reciter";
-const MIN_ZOOM = 0.6;
-const MAX_ZOOM = 2.5;
 const LONG_PRESS_MS = 500;
 const loadedFonts = new Set<string>();
 
@@ -77,18 +82,6 @@ async function loadPageFont(page: number): Promise<void> {
   } catch (e) {
     console.warn(`Font p${page} failed`, e);
   }
-}
-
-function readInitialPage(): number {
-  if (typeof window === "undefined") return 1;
-  const stored = Number(localStorage.getItem(LAST_PAGE_KEY));
-  return stored >= 1 && stored <= TOTAL_MUSHAF_PAGES ? stored : 1;
-}
-
-function readInitialZoom(): number {
-  if (typeof window === "undefined") return 1;
-  const stored = Number(localStorage.getItem(ZOOM_KEY));
-  return stored >= MIN_ZOOM && stored <= MAX_ZOOM ? stored : 1;
 }
 
 /**
@@ -235,9 +228,8 @@ export default function MushafViewer({ locale }: Props) {
   const searchHighlightTimeoutRef = useRef<number | null>(null);
 
   const [activeVerseKey, setActiveVerseKey] = useState<string | null>(null);
-  const [selectedReciter, setSelectedReciter] = useState<CuratedReciter | null>(
-    null,
-  );
+  const [selectedReciter, setSelectedReciterState] =
+    useState<CuratedReciter | null>(null);
 
   const [readingSaved, setReadingSaved] = useState(false);
   const [memoOpen, setMemoOpen] = useState(false);
@@ -336,7 +328,7 @@ export default function MushafViewer({ locale }: Props) {
   // contiguous range (within the same surah) into this same set, so both
   // paths — pick individual ayahs, or pick a range like 15–25 — end up in
   // one consistent structure a future memorization screen can read.
-  const [memorizationSelection, setMemorizationSelection] = useState<
+  const [memorizationSelection, setMemorizationSelection] = useState
     Set<string>
   >(new Set());
   const [selectionAnchor, setSelectionAnchor] = useState<string | null>(null);
@@ -475,21 +467,14 @@ export default function MushafViewer({ locale }: Props) {
   const pinchStartZoom = useRef(1);
 
   useEffect(() => {
-    setPageNumber(readInitialPage());
-    setZoom(readInitialZoom());
+    setPageNumber(getLastPage());
+    setZoom(getZoom());
     const rb = getReadingBookmark();
-    setReadingSaved(!!rb && rb.pageNumber === readInitialPage());
+    setReadingSaved(!!rb && rb.pageNumber === getLastPage());
   }, []);
 
   useEffect(() => {
-    const stored = localStorage.getItem(RECITER_KEY);
-    if (stored) {
-      try {
-        setSelectedReciter(JSON.parse(stored));
-      } catch {
-        /* ignore */
-      }
-    }
+    setSelectedReciterState(getSelectedReciter());
   }, []);
 
   useEffect(() => {
@@ -507,7 +492,7 @@ export default function MushafViewer({ locale }: Props) {
       setFontReady(true);
       setLoading(false);
       prefetchNeighborPages(pageNumber);
-      localStorage.setItem(LAST_PAGE_KEY, String(pageNumber));
+      setLastPage(pageNumber);
 
       const rb = getReadingBookmark();
       setReadingSaved(!!rb && rb.pageNumber === pageNumber);
@@ -537,9 +522,8 @@ export default function MushafViewer({ locale }: Props) {
   }, []);
 
   const setAndPersistZoom = useCallback((z: number) => {
-    const clamped = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
+    const clamped = persistZoom(z);
     setZoom(clamped);
-    localStorage.setItem(ZOOM_KEY, String(clamped));
   }, []);
 
   const goToPage = useCallback((p: number) => {
@@ -696,7 +680,7 @@ export default function MushafViewer({ locale }: Props) {
 
   const onTouchEnd = (e: React.TouchEvent) => {
     if (pinchStartDist.current) {
-      localStorage.setItem(ZOOM_KEY, String(zoom));
+      persistZoom(zoom);
       pinchStartDist.current = null;
       return;
     }
@@ -742,8 +726,8 @@ export default function MushafViewer({ locale }: Props) {
   };
 
   const handleSelectReciter = (m: CuratedReciter) => {
-    setSelectedReciter(m);
-    localStorage.setItem(RECITER_KEY, JSON.stringify(m));
+    setSelectedReciterState(m);
+    persistSelectedReciter(m);
   };
 
   const handleSearchNavigate = (page: number, verseKey: string) => {
