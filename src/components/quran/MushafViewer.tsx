@@ -328,7 +328,7 @@ export default function MushafViewer({ locale }: Props) {
   // contiguous range (within the same surah) into this same set, so both
   // paths — pick individual ayahs, or pick a range like 15–25 — end up in
   // one consistent structure a future memorization screen can read.
-  const [memorizationSelection, setMemorizationSelection] = useState
+  const [memorizationSelection, setMemorizationSelection] = useState<
     Set<string>
   >(new Set());
   const [selectionAnchor, setSelectionAnchor] = useState<string | null>(null);
