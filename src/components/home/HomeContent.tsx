@@ -26,6 +26,14 @@ import { MobilePage } from "@/components/mobile/MobileUI";
  *   is unaffected since it never passes this prop and the default is
  *   false. Both cards can be expanded independently; expanding one does
  *   not close the other.
+ *
+ * The PrayerTimesWidget's `compact` variant renders white text (it was
+ * built for Hero.tsx's usage, where it always sits inside a translucent
+ * dark box on top of the big green hero gradient). This native screen has
+ * no such background of its own — it's the plain light `bg-surface` —
+ * so the widget must be wrapped in an opaque dark card here, or the white
+ * text is invisible against the light background (this was the actual
+ * bug: the text was always there, just white-on-white).
  */
 
 interface Props {
@@ -118,7 +126,10 @@ export default function HomeContent({ locale, verse, hadith }: Props) {
 
   return (
     <MobilePage>
-      <div className="mb-5">
+      <div
+        className="mb-5 rounded-2xl p-5 shadow-sm"
+        style={{ background: "linear-gradient(135deg, #0D3D28, #1B6B4A)" }}
+      >
         <PrayerTimesWidget locale={locale} compact />
       </div>
 
