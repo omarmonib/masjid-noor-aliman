@@ -140,7 +140,12 @@ export default function HomeContent({ locale, verse, hadith }: Props) {
         isOpen={verseOpen}
         onToggle={() => setVerseOpen((v) => !v)}
       >
-        <DailyVerseSection verse={verse} locale={locale} hideTranslation />
+        <div
+          className="rounded-3xl overflow-hidden"
+          style={{ background: "linear-gradient(135deg, #0D3D28, #1B6B4A)" }}
+        >
+          <DailyVerseSection verse={verse} locale={locale} hideTranslation />
+        </div>
       </PreviewCard>
 
       <PreviewCard
