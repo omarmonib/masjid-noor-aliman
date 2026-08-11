@@ -23,16 +23,10 @@ import {
 } from "@/components/mobile/MobileUI";
 
 /**
- * The native app's "More" screen — a real dedicated page (not a bottom
- * sheet), styled as a grouped settings/menu screen rather than a website
- * nav list. Groupings match the architecture: General / Mosque / Account
- * / Application / Administration (admin-only, conditionally rendered).
- *
- * This page only renders inside NativeLayout in practice (it's reached
- * via the "More" tab in NativeBottomNav), but nothing here assumes that —
- * it would render correctly on web too if visited directly, it simply
- * isn't linked to from WebLayout's Navbar since the website already
- * exposes all these destinations directly in its own nav.
+ * The native app's "More" screen — grouped settings/menu screen, per the
+ * architecture. Notifications, Settings, and Account now link to their
+ * real dedicated pages (built earlier in this project) instead of the
+ * original inert "Coming soon" placeholder rows.
  */
 
 interface Props {
@@ -50,10 +44,12 @@ export default function MorePage({ locale }: Props) {
   return (
     <MobilePage>
       {/* Account summary strip when signed in — quick identity glance at
-         the top of the page, similar to how native apps surface the
-         current user above the settings groups. */}
+         the top of the page, tapping through to the full Account page. */}
       {session && (
-        <div className="flex items-center gap-3 bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-6">
+        <button
+          onClick={() => go("/account")}
+          className="w-full flex items-center gap-3 bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-6"
+        >
           <div className="w-12 h-12 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-lg flex-shrink-0">
             {(session.user?.name ||
               session.user?.email ||
@@ -67,7 +63,7 @@ export default function MorePage({ locale }: Props) {
               {isAdmin ? (isAr ? "مدير" : "Admin") : isAr ? "مستخدم" : "User"}
             </p>
           </div>
-        </div>
+        </button>
       )}
 
       <MobileSection title={isAr ? "عام" : "General"}>
@@ -111,11 +107,9 @@ export default function MorePage({ locale }: Props) {
           <>
             <MobileListItem
               icon={User}
-              title={isAr ? "الملف الشخصي" : "Profile"}
-              subtitle={isAr ? "قريباً" : "Coming soon"}
-              onTap={() => {}}
+              title={isAr ? "الملف الشخصي" : "Account"}
+              onTap={() => go("/account")}
               locale={locale}
-              showChevron={false}
             />
             <MobileListItem
               icon={LogOut}
@@ -141,18 +135,14 @@ export default function MorePage({ locale }: Props) {
         <MobileListItem
           icon={Settings}
           title={isAr ? "الإعدادات" : "Settings"}
-          subtitle={isAr ? "قريباً" : "Coming soon"}
-          onTap={() => {}}
+          onTap={() => go("/settings")}
           locale={locale}
-          showChevron={false}
         />
         <MobileListItem
           icon={Bell}
           title={isAr ? "الإشعارات" : "Notifications"}
-          subtitle={isAr ? "قريباً" : "Coming soon"}
-          onTap={() => {}}
+          onTap={() => go("/notifications")}
           locale={locale}
-          showChevron={false}
         />
       </MobileSection>
 
