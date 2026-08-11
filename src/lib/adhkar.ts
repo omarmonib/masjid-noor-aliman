@@ -1,4 +1,5 @@
 import adhkarRaw from "@/data/adhkar-raw.json";
+import { parseDeclaredRepeatCount } from "@/lib/adhkar-count-parser";
 
 export type AdhkarCategory = string;
 
@@ -231,28 +232,70 @@ const CATEGORY_MAP: Array<{
   },
 ];
 
+/**
+ * Development-time-only sanity check.
+ *
+ * Checks Dhikr entries whose Arabic text explicitly declares
+ * a repeat count such as "(سبع مرات)" and compares that value
+ * with the stored `repeat` value.
+ *
+ * This is intentionally a warning-only check.
+ * It does not automatically modify the dataset.
+ */
+const DEBUG_ADHKAR_COUNTS = process.env.NODE_ENV !== "production";
+
+function auditAdhkarRepeatCounts(categories: AdhkarCategoryData[]) {
+  if (!DEBUG_ADHKAR_COUNTS) return;
+
+  for (const category of categories) {
+    for (const dhikr of category.adhkar) {
+      const declared = parseDeclaredRepeatCount(dhikr.textAr);
+
+      if (declared !== null && declared !== dhikr.repeat) {
+        console.warn(
+          `[adhkar] possible repeat-count mismatch in "${category.labelEn}" ` +
+            `(id ${dhikr.id}): text seems to declare ${declared}x but ` +
+            `stored repeat is ${dhikr.repeat}x — text: "${dhikr.textAr.slice(
+              0,
+              70,
+            )}..."`,
+        );
+      }
+    }
+  }
+}
+
 export function getAllAdhkar(): AdhkarCategoryData[] {
   const data = adhkarRaw as Array<{
     id: number;
     category: string;
-    array: Array<{ id: number; text: string; count: number }>;
+    array: Array<{
+      id: number;
+      text: string;
+      count: number;
+    }>;
   }>;
 
-  return CATEGORY_MAP.map((cat) => {
-    const found = data.find((d) => d.id === cat.jsonId);
+  const categories = CATEGORY_MAP.map((category) => {
+    const found = data.find((item) => item.id === category.jsonId);
+
     const adhkar: Dhikr[] = (found?.array || []).map((item) => ({
-      id: `${cat.jsonId}-${item.id}`,
+      id: `${category.jsonId}-${item.id}`,
       textAr: item.text,
       repeat: item.count || 1,
     }));
 
     return {
-      id: String(cat.jsonId),
-      labelAr: found?.category || cat.labelEn,
-      labelEn: cat.labelEn,
-      icon: cat.icon,
-      color: cat.color,
+      id: String(category.jsonId),
+      labelAr: found?.category || category.labelEn,
+      labelEn: category.labelEn,
+      icon: category.icon,
+      color: category.color,
       adhkar,
     };
   });
+
+  auditAdhkarRepeatCounts(categories);
+
+  return categories;
 }
