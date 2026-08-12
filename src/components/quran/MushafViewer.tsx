@@ -39,6 +39,7 @@ import ReciterPanel from "./ReciterPanel";
 import QuranSearchPanel from "./QuranSearchPanel";
 import AudioPlayer, { type AudioPlayerHandle } from "./AudioPlayer";
 import AyahActionMenu from "./AyahActionMenu";
+import QuranMoreSheet from "./QuranMoreSheet";
 import {
   Bookmark,
   BookmarkCheck,
@@ -47,6 +48,7 @@ import {
   Settings2,
   Maximize2,
   Minimize2,
+  MoreHorizontal,
 } from "lucide-react";
 
 interface Props {
@@ -113,6 +115,11 @@ function getBismillahLineNumbers(pageData: MushafPageData | null): Set<number> {
 
 export default function MushafViewer({ locale }: Props) {
   const isAr = locale === "ar";
+  // Rendered only after AppChrome resolves the platform (isNative/isNativeApp
+  // is safe to read synchronously here — see ShareButtons.tsx for the same
+  // pattern), so this drives every mobile-vs-desktop branch in this file.
+  const native = isNativeApp();
+  const [moreSheetOpen, setMoreSheetOpen] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
   const pageNumberRef = useRef(1);
   useEffect(() => {
@@ -323,12 +330,8 @@ export default function MushafViewer({ locale }: Props) {
   );
 
   // ── Memorization selection (feeds Hifz Mode) ──
-  // A flat set of individually-selected ayah keys. "Add to Memorization
-  // Selection" toggles a single ayah in; Start/End Selection expand a
-  // contiguous range (within the same surah) into this same set, so both
-  // paths — pick individual ayahs, or pick a range like 15–25 — end up in
-  // one consistent structure a future memorization screen can read.
-  const [memorizationSelection, setMemorizationSelection] = useState<
+  const [memorizationSelection, setMemorizationSelection] = useState
+    <
     Set<string>
   >(new Set());
   const [selectionAnchor, setSelectionAnchor] = useState<string | null>(null);
@@ -531,12 +534,6 @@ export default function MushafViewer({ locale }: Props) {
     setPageNumber(p);
   }, []);
 
-  // Keeps the displayed Mushaf page synchronized with whichever ayah
-  // Continuous-mode playback is currently on. AudioPlayer owns the
-  // <audio> element entirely and is never remounted by a page change (its
-  // position in the component tree doesn't depend on pageNumber), so
-  // triggering goToPage here never interrupts playback — the audio keeps
-  // running underneath while the page swaps.
   const handleAudioVerseChange = useCallback(
     (verseKey: string | null) => {
       setActiveVerseKey(verseKey);
@@ -809,12 +806,6 @@ export default function MushafViewer({ locale }: Props) {
 
   const bismillahLines = getBismillahLineNumbers(pageData);
 
-  // One entry per visual row on the page, in top-to-bottom order — this
-  // is what actually drives the CSS grid below. Using the wrapper divs
-  // (one per Mushaf line, sometimes containing a Bismillah AND a words
-  // row) as grid children would let a Bismillah row hide inside the same
-  // 1fr slot as its line instead of getting its own, so this flattens
-  // both kinds of row into siblings first.
   type PageRow =
     | { type: "bismillah" }
     | { type: "words"; lineKey: number; words: MushafPageData["words"] };
@@ -835,161 +826,212 @@ export default function MushafViewer({ locale }: Props) {
   const chromeVisible = !focusMode || controlsVisible;
 
   return (
-    <div ref={containerRef} className="h-screen bg-[#1a1a1a] flex flex-col">
-      {/* Toolbar */}
+    <div
+      ref={containerRef}
+      className={`bg-[#1a1a1a] flex flex-col ${native ? "" : "h-screen"}`}
+    >
       {chromeVisible && (
-        <div className="flex-shrink-0 bg-[#111] border-b border-white/10 px-3 py-2.5 z-40 transition-opacity duration-200">
-          <div className="max-w-3xl mx-auto flex items-center justify-between gap-2 flex-wrap">
-            <button
-              onClick={() => setSurahPanelOpen(true)}
-              className="bg-white/10 hover:bg-white/20 text-white font-arabic px-3 py-1.5 rounded-lg text-sm flex items-center gap-2"
-            >
-              <span>{currentSurahName || "…"}</span>
-              <span className="text-white/40 text-xs">▾</span>
-            </button>
+        // On native, the toolbar + page-nav stick to the top of the
+        // scrollable content area (the outer NativeLayout <main> owns the
+        // actual scrolling here — MushafViewer no longer forces its own
+        // h-screen/overflow region on native, see the scrollRef div below).
+        // Web/desktop is unaffected: this wrapper is still a plain flex-col,
+        // so the two rows stack exactly as before.
+        <div className={`flex flex-col ${native ? "sticky top-0 z-40" : ""}`}>
+          {/* Toolbar */}
+          {native ? (
+            <div className="flex-shrink-0 bg-[#111] border-b border-white/10 px-3 py-2.5 transition-opacity duration-200">
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  onClick={() => setSurahPanelOpen(true)}
+                  className="bg-white/10 hover:bg-white/20 text-white font-arabic px-3 py-1.5 rounded-lg text-sm flex items-center gap-2 min-w-0"
+                >
+                  <span className="truncate">{currentSurahName || "…"}</span>
+                  <span className="text-white/40 text-xs flex-shrink-0">▾</span>
+                </button>
 
-            <div className="flex items-center gap-1 flex-wrap">
-              <button
-                onClick={handleSaveReadingBookmark}
-                title={isAr ? "حفظ علامة القراءة" : "Save reading bookmark"}
-                className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
-              >
-                {readingSaved ? (
-                  <BookmarkCheck size={15} className="text-[#C9A84C]" />
-                ) : (
-                  <Bookmark size={15} />
-                )}
-              </button>
-              <button
-                onClick={handleContinueReading}
-                title={isAr ? "متابعة القراءة" : "Continue reading"}
-                className="px-2 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white/80 text-xs font-arabic"
-              >
-                {isAr ? "متابعة" : "Continue"}
-              </button>
-              <button
-                onClick={openMemoDialog}
-                title={isAr ? "علامة الحفظ" : "Memorization bookmark"}
-                className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
-              >
-                <PenLine size={15} />
-              </button>
-
-              <span className="w-px h-5 bg-white/10 mx-0.5" />
-
-              <button
-                onClick={() => setAndPersistZoom(zoom - 0.1)}
-                className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm flex items-center justify-center"
-              >
-                −
-              </button>
-              <span className="px-1 text-white/60 text-xs font-mono w-11 text-center">
-                {Math.round(zoom * 100)}%
-              </span>
-              <button
-                onClick={() => setAndPersistZoom(zoom + 0.1)}
-                className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm flex items-center justify-center"
-              >
-                +
-              </button>
-              <button
-                onClick={fitWidth}
-                title={isAr ? "ملائمة العرض" : "Fit width"}
-                className="px-2 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 text-xs font-arabic"
-              >
-                {isAr ? "العرض" : "Width"}
-              </button>
-              <button
-                onClick={fitHeight}
-                title={isAr ? "ملائمة الارتفاع" : "Fit height"}
-                className="px-2 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 text-xs font-arabic"
-              >
-                {isAr ? "الارتفاع" : "Height"}
-              </button>
-              <button
-                onClick={fitScreen}
-                title={isAr ? "ملائمة الشاشة" : "Fit screen"}
-                className="px-2 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 text-xs font-arabic"
-              >
-                {isAr ? "الشاشة" : "Screen"}
-              </button>
-              <button
-                onClick={toggleFullscreen}
-                title={isAr ? "ملء الشاشة (F)" : "Fullscreen (F)"}
-                className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm flex items-center justify-center"
-              >
-                {isFullscreen ? "⤢" : "⛶"}
-              </button>
-
-              <span className="w-px h-5 bg-white/10 mx-0.5" />
-
-              <button
-                onClick={() => setSearchPanelOpen(true)}
-                title={isAr ? "بحث في القرآن" : "Search Quran"}
-                className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
-              >
-                <Search size={15} />
-              </button>
-              <button
-                onClick={toggleSettingsPanel}
-                title={
-                  isAr ? "إظهار/إخفاء الإعدادات (S)" : "Show/hide settings (S)"
-                }
-                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-                  settingsPanelVisible
-                    ? "bg-[#C9A84C]/20 text-[#C9A84C]"
-                    : "bg-white/10 hover:bg-white/20 text-white"
-                }`}
-              >
-                <Settings2 size={15} />
-              </button>
-              <button
-                onClick={enterFocusMode}
-                title={
-                  isAr ? "وضع القراءة المركّز (Z)" : "Reading Focus Mode (Z)"
-                }
-                className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
-              >
-                <Maximize2 size={15} />
-              </button>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button
+                    onClick={() => setSearchPanelOpen(true)}
+                    title={isAr ? "بحث في القرآن" : "Search Quran"}
+                    className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+                  >
+                    <Search size={16} />
+                  </button>
+                  <button
+                    onClick={toggleSettingsPanel}
+                    title={isAr ? "القارئ" : "Reciter"}
+                    className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+                      settingsPanelVisible
+                        ? "bg-[#C9A84C]/20 text-[#C9A84C]"
+                        : "bg-white/10 hover:bg-white/20 text-white"
+                    }`}
+                  >
+                    <Settings2 size={16} />
+                  </button>
+                  <button
+                    onClick={() => setMoreSheetOpen(true)}
+                    title={isAr ? "المزيد" : "More"}
+                    className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+                  >
+                    <MoreHorizontal size={16} />
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          ) : (
+            <div className="flex-shrink-0 bg-[#111] border-b border-white/10 px-3 py-2.5 z-40 transition-opacity duration-200">
+              <div className="max-w-3xl mx-auto flex items-center justify-between gap-2 flex-wrap">
+                <button
+                  onClick={() => setSurahPanelOpen(true)}
+                  className="bg-white/10 hover:bg-white/20 text-white font-arabic px-3 py-1.5 rounded-lg text-sm flex items-center gap-2"
+                >
+                  <span>{currentSurahName || "…"}</span>
+                  <span className="text-white/40 text-xs">▾</span>
+                </button>
 
-      {/* Page nav */}
-      {chromeVisible && (
-        <div className="flex-shrink-0 bg-[#161616] border-b border-white/5 px-3 py-2 z-30 transition-opacity duration-200">
-          <div className="max-w-3xl mx-auto flex items-center justify-between">
-            <button
-              onClick={() => goToPage(pageNumber - 1)}
-              disabled={pageNumber <= 1}
-              className="px-4 py-1.5 bg-white/10 hover:bg-white/20 text-white font-arabic rounded-xl disabled:opacity-30 transition-colors text-sm"
-            >
-              {isAr ? "‹ السابقة" : "‹ Prev"}
-            </button>
+                <div className="flex items-center gap-1 flex-wrap">
+                  <button
+                    onClick={handleSaveReadingBookmark}
+                    title={isAr ? "حفظ علامة القراءة" : "Save reading bookmark"}
+                    className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+                  >
+                    {readingSaved ? (
+                      <BookmarkCheck size={15} className="text-[#C9A84C]" />
+                    ) : (
+                      <Bookmark size={15} />
+                    )}
+                  </button>
+                  <button
+                    onClick={handleContinueReading}
+                    title={isAr ? "متابعة القراءة" : "Continue reading"}
+                    className="px-2 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white/80 text-xs font-arabic"
+                  >
+                    {isAr ? "متابعة" : "Continue"}
+                  </button>
+                  <button
+                    onClick={openMemoDialog}
+                    title={isAr ? "علامة الحفظ" : "Memorization bookmark"}
+                    className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+                  >
+                    <PenLine size={15} />
+                  </button>
 
-            <div className="text-center">
-              <span className="text-white/70 font-arabic text-sm block">
-                {isAr ? `صفحة ${pageNumber}` : `Page ${pageNumber}`}
-              </span>
-              {firstMeta && (
-                <span className="text-white/30 font-arabic text-xs block">
-                  {isAr
-                    ? `جزء ${firstMeta.juzNumber} · حزب ${firstMeta.hizbNumber}`
-                    : `Juz ${firstMeta.juzNumber} · Hizb ${firstMeta.hizbNumber}`}
-                  {hasSajdah && <> · {isAr ? "۩ سجدة" : "۩ Sajdah"}</>}
+                  <span className="w-px h-5 bg-white/10 mx-0.5" />
+
+                  <button
+                    onClick={() => setAndPersistZoom(zoom - 0.1)}
+                    className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm flex items-center justify-center"
+                  >
+                    −
+                  </button>
+                  <span className="px-1 text-white/60 text-xs font-mono w-11 text-center">
+                    {Math.round(zoom * 100)}%
+                  </span>
+                  <button
+                    onClick={() => setAndPersistZoom(zoom + 0.1)}
+                    className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm flex items-center justify-center"
+                  >
+                    +
+                  </button>
+                  <button
+                    onClick={fitWidth}
+                    title={isAr ? "ملائمة العرض" : "Fit width"}
+                    className="px-2 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 text-xs font-arabic"
+                  >
+                    {isAr ? "العرض" : "Width"}
+                  </button>
+                  <button
+                    onClick={fitHeight}
+                    title={isAr ? "ملائمة الارتفاع" : "Fit height"}
+                    className="px-2 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 text-xs font-arabic"
+                  >
+                    {isAr ? "الارتفاع" : "Height"}
+                  </button>
+                  <button
+                    onClick={fitScreen}
+                    title={isAr ? "ملائمة الشاشة" : "Fit screen"}
+                    className="px-2 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 text-xs font-arabic"
+                  >
+                    {isAr ? "الشاشة" : "Screen"}
+                  </button>
+                  <button
+                    onClick={toggleFullscreen}
+                    title={isAr ? "ملء الشاشة (F)" : "Fullscreen (F)"}
+                    className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm flex items-center justify-center"
+                  >
+                    {isFullscreen ? "⤢" : "⛶"}
+                  </button>
+
+                  <span className="w-px h-5 bg-white/10 mx-0.5" />
+
+                  <button
+                    onClick={() => setSearchPanelOpen(true)}
+                    title={isAr ? "بحث في القرآن" : "Search Quran"}
+                    className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+                  >
+                    <Search size={15} />
+                  </button>
+                  <button
+                    onClick={toggleSettingsPanel}
+                    title={
+                      isAr ? "إظهار/إخفاء الإعدادات (S)" : "Show/hide settings (S)"
+                    }
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                      settingsPanelVisible
+                        ? "bg-[#C9A84C]/20 text-[#C9A84C]"
+                        : "bg-white/10 hover:bg-white/20 text-white"
+                    }`}
+                  >
+                    <Settings2 size={15} />
+                  </button>
+                  <button
+                    onClick={enterFocusMode}
+                    title={
+                      isAr ? "وضع القراءة المركّز (Z)" : "Reading Focus Mode (Z)"
+                    }
+                    className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+                  >
+                    <Maximize2 size={15} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Page nav */}
+          <div className="flex-shrink-0 bg-[#161616] border-b border-white/5 px-3 py-2 z-30 transition-opacity duration-200">
+            <div className="max-w-3xl mx-auto flex items-center justify-between">
+              <button
+                onClick={() => goToPage(pageNumber - 1)}
+                disabled={pageNumber <= 1}
+                className="px-4 py-1.5 bg-white/10 hover:bg-white/20 text-white font-arabic rounded-xl disabled:opacity-30 transition-colors text-sm"
+              >
+                {isAr ? "‹ السابقة" : "‹ Prev"}
+              </button>
+
+              <div className="text-center">
+                <span className="text-white/70 font-arabic text-sm block">
+                  {isAr ? `صفحة ${pageNumber}` : `Page ${pageNumber}`}
                 </span>
-              )}
-            </div>
+                {firstMeta && (
+                  <span className="text-white/30 font-arabic text-xs block">
+                    {isAr
+                      ? `جزء ${firstMeta.juzNumber} · حزب ${firstMeta.hizbNumber}`
+                      : `Juz ${firstMeta.juzNumber} · Hizb ${firstMeta.hizbNumber}`}
+                    {hasSajdah && <> · {isAr ? "۩ سجدة" : "۩ Sajdah"}</>}
+                  </span>
+                )}
+              </div>
 
-            <button
-              onClick={() => goToPage(pageNumber + 1)}
-              disabled={pageNumber >= TOTAL_MUSHAF_PAGES}
-              className="px-4 py-1.5 bg-white/10 hover:bg-white/20 text-white font-arabic rounded-xl disabled:opacity-30 transition-colors text-sm"
-            >
-              {isAr ? "التالية ›" : "Next ›"}
-            </button>
+              <button
+                onClick={() => goToPage(pageNumber + 1)}
+                disabled={pageNumber >= TOTAL_MUSHAF_PAGES}
+                className="px-4 py-1.5 bg-white/10 hover:bg-white/20 text-white font-arabic rounded-xl disabled:opacity-30 transition-colors text-sm"
+              >
+                {isAr ? "التالية ›" : "Next ›"}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -998,7 +1040,14 @@ export default function MushafViewer({ locale }: Props) {
       <div className="flex-1 flex min-h-0 relative">
         <div
           ref={scrollRef}
-          className="flex-1 min-w-0 overflow-auto px-4 py-6 pb-28"
+          className={`min-w-0 px-4 py-6 ${
+            native ? "" : "flex-1 overflow-auto pb-28"
+          }`}
+          style={
+            native
+              ? { paddingBottom: "calc(200px + env(safe-area-inset-bottom))" }
+              : undefined
+          }
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
@@ -1028,13 +1077,6 @@ export default function MushafViewer({ locale }: Props) {
                   style={{
                     transform: `scale(${zoom})`,
                     transformOrigin: "top center",
-                    // Approximates the King Fahd Complex (Madinah) Mushaf's
-                    // printed page proportions. Locking this via aspect-ratio
-                    // — instead of letting height fall out of stacked line
-                    // blocks — is the actual fix for "page much taller than
-                    // the real Mushaf": the page is now a fixed shape, and
-                    // density is a direct consequence of dividing that fixed
-                    // height by the line count, not a pile of per-line margins.
                     aspectRatio: "0.66",
                   }}
                   className="mushaf-container-query rounded-2xl overflow-hidden shadow-2xl transition-transform duration-150 flex flex-col"
@@ -1058,9 +1100,6 @@ export default function MushafViewer({ locale }: Props) {
                     </span>
                   </div>
 
-                  {/* One grid row per visual line — this, not line-height or
-                     per-line margins, is what makes the page dense and
-                     evenly filled like the printed Mushaf. */}
                   <div
                     dir="rtl"
                     className="flex-1 min-h-0 px-6"
@@ -1236,6 +1275,40 @@ export default function MushafViewer({ locale }: Props) {
         onClose={() => setSearchPanelOpen(false)}
         locale={locale}
         onNavigate={handleSearchNavigate}
+      />
+
+      <QuranMoreSheet
+        isOpen={moreSheetOpen}
+        onClose={() => setMoreSheetOpen(false)}
+        locale={locale}
+        zoom={zoom}
+        onZoomIn={() => setAndPersistZoom(zoom + 0.1)}
+        onZoomOut={() => setAndPersistZoom(zoom - 0.1)}
+        onFitWidth={fitWidth}
+        onFitHeight={fitHeight}
+        onFitScreen={fitScreen}
+        isFullscreen={isFullscreen}
+        onToggleFullscreen={() => {
+          toggleFullscreen();
+          setMoreSheetOpen(false);
+        }}
+        readingSaved={readingSaved}
+        onSaveReadingBookmark={() => {
+          handleSaveReadingBookmark();
+          setMoreSheetOpen(false);
+        }}
+        onContinueReading={() => {
+          handleContinueReading();
+          setMoreSheetOpen(false);
+        }}
+        onOpenMemoDialog={() => {
+          openMemoDialog();
+          setMoreSheetOpen(false);
+        }}
+        onEnterFocusMode={() => {
+          enterFocusMode();
+          setMoreSheetOpen(false);
+        }}
       />
 
       {contextMenu && (

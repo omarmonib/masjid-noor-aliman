@@ -132,6 +132,7 @@ function AudioPlayerImpl(
   ref: React.ForwardedRef<AudioPlayerHandle>,
 ) {
   const isAr = locale === "ar";
+  const native = isNativeApp();
   const [mode, setMode] = useState<Mode>("sync");
   const [isPlaying, setIsPlaying] = useState(false);
   const [repeatMode, setRepeatMode] = useState<RepeatMode>("off");
@@ -557,7 +558,12 @@ function AudioPlayerImpl(
 
   return (
     <div
-      className="fixed bottom-0 inset-x-0 z-50 bg-[#111] border-t border-white/10 px-3 py-2.5"
+      className="fixed inset-x-0 z-50 bg-[#111] border-t border-white/10 px-3 py-2.5"
+      style={
+        native
+          ? { bottom: "calc(64px + env(safe-area-inset-bottom))" }
+          : { bottom: 0 }
+      }
       dir={isAr ? "rtl" : "ltr"}
     >
       <div className="max-w-3xl mx-auto flex items-center gap-2">
@@ -602,15 +608,20 @@ function AudioPlayerImpl(
           )}
         </div>
 
-        {/* Prev / Play / Next */}
+        {/* Prev / Play / Next — page-jump buttons are dropped on native
+           since the page-nav bar in MushafViewer already provides the
+           exact same prev/next actions; keeping both was a true duplicate
+           on the small mobile toolbar. Web/desktop keeps both, unchanged. */}
         <div className="flex items-center gap-1 flex-shrink-0">
-          <button
-            onClick={onPrevPage}
-            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
-            title={isAr ? "الصفحة السابقة" : "Prev page"}
-          >
-            <SkipForward size={14} className={isAr ? "" : "rotate-180"} />
-          </button>
+          {!native && (
+            <button
+              onClick={onPrevPage}
+              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+              title={isAr ? "الصفحة السابقة" : "Prev page"}
+            >
+              <SkipForward size={14} className={isAr ? "" : "rotate-180"} />
+            </button>
+          )}
           <button
             onClick={togglePlay}
             className="w-10 h-10 rounded-full flex items-center justify-center text-white"
@@ -618,13 +629,15 @@ function AudioPlayerImpl(
           >
             {isPlaying ? <Pause size={18} /> : <Play size={18} />}
           </button>
-          <button
-            onClick={onNextPage}
-            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
-            title={isAr ? "الصفحة التالية" : "Next page"}
-          >
-            <SkipForward size={14} className={isAr ? "rotate-180" : ""} />
-          </button>
+          {!native && (
+            <button
+              onClick={onNextPage}
+              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+              title={isAr ? "الصفحة التالية" : "Next page"}
+            >
+              <SkipForward size={14} className={isAr ? "rotate-180" : ""} />
+            </button>
+          )}
         </div>
 
         {/* Progress */}
