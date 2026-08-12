@@ -58,7 +58,6 @@ export default function QuranMoreSheet({
   onSaveReadingBookmark,
   onContinueReading,
   onOpenMemoDialog,
-  onEnterFocusMode,
 }: Props) {
   const isAr = locale === "ar";
 
@@ -181,11 +180,7 @@ export default function QuranMoreSheet({
             label={isAr ? "ملء الشاشة" : "Fullscreen"}
             onClick={onToggleFullscreen}
           />
-          <Row
-            icon={<Maximize2 size={17} />}
-            label={isAr ? "وضع القراءة المركّز" : "Reading Focus Mode"}
-            onClick={onEnterFocusMode}
-          />
+          
         </div>
       </div>
     </div>

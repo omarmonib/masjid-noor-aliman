@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+
 import {
   getMushafPage,
   prefetchNeighborPages,
@@ -34,6 +35,7 @@ import {
 } from "@/lib/quran-reader-prefs";
 import { getPageForVerseKey } from "@/lib/quran-search";
 import { isNativeApp } from "@/lib/capacitor-adhan";
+import { useNativeChrome } from "@/lib/native-chrome-context";
 import SurahPanel from "./SurahPanel";
 import ReciterPanel from "./ReciterPanel";
 import QuranSearchPanel from "./QuranSearchPanel";
@@ -119,6 +121,7 @@ export default function MushafViewer({ locale }: Props) {
   // is safe to read synchronously here — see ShareButtons.tsx for the same
   // pattern), so this drives every mobile-vs-desktop branch in this file.
   const native = isNativeApp();
+  const { setHideAppBar } = useNativeChrome();
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
   const pageNumberRef = useRef(1);
@@ -160,14 +163,16 @@ export default function MushafViewer({ locale }: Props) {
     setFocusModePref(true);
     setControlsVisible(false);
     clearHideTimer();
-  }, [clearHideTimer]);
+    if (native) setHideAppBar(true);
+  }, [clearHideTimer, native, setHideAppBar]);
 
   const exitFocusMode = useCallback(() => {
     setFocusMode(false);
     setFocusModePref(false);
     setControlsVisible(true);
     clearHideTimer();
-  }, [clearHideTimer]);
+    if (native) setHideAppBar(false);
+  }, [clearHideTimer, native, setHideAppBar]);
 
   const toggleFocusMode = useCallback(() => {
     if (focusMode) exitFocusMode();
@@ -185,6 +190,13 @@ export default function MushafViewer({ locale }: Props) {
   }, [focusMode, scheduleAutoHide, clearHideTimer]);
 
   useEffect(() => clearHideTimer, [clearHideTimer]);
+
+  useEffect(() => {
+    return () => {
+      if (native) setHideAppBar(false);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Settings (reciter) panel ──
   const isDesktopPanel = useIsDesktop(1024);
@@ -330,8 +342,7 @@ export default function MushafViewer({ locale }: Props) {
   );
 
   // ── Memorization selection (feeds Hifz Mode) ──
-  const [memorizationSelection, setMemorizationSelection] = useState
-    <
+  const [memorizationSelection, setMemorizationSelection] = useState<
     Set<string>
   >(new Set());
   const [selectionAnchor, setSelectionAnchor] = useState<string | null>(null);
@@ -876,6 +887,13 @@ export default function MushafViewer({ locale }: Props) {
                   >
                     <MoreHorizontal size={16} />
                   </button>
+                  <button
+                    onClick={enterFocusMode}
+                    title={isAr ? "وضع القراءة المركّز" : "Focus Mode"}
+                    className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+                  >
+                    <Maximize2 size={16} />
+                  </button>
                 </div>
               </div>
             </div>
@@ -1048,12 +1066,20 @@ export default function MushafViewer({ locale }: Props) {
       <div className={`relative ${native ? "" : "flex-1 flex min-h-0"}`}>
         <div
           ref={scrollRef}
-          className={`min-w-0 px-4 py-6 ${
-            native ? "" : "flex-1 overflow-auto pb-28"
+          className={`min-w-0 ${
+            native
+              ? focusMode
+                ? "px-0 py-0"
+                : "px-4 py-6"
+              : "flex-1 overflow-auto px-4 py-6 pb-28"
           }`}
           style={
             native
-              ? { paddingBottom: "calc(200px + env(safe-area-inset-bottom))" }
+              ? {
+                  paddingBottom: focusMode
+                    ? "env(safe-area-inset-bottom)"
+                    : "calc(200px + env(safe-area-inset-bottom))",
+                }
               : undefined
           }
           onTouchStart={onTouchStart}
@@ -1076,18 +1102,15 @@ export default function MushafViewer({ locale }: Props) {
                 </div>
               </div>
             ) : (
+              // MushafViewer.tsx — inside the non-loading branch
               <div
-                className="mx-auto"
-                style={{ width: "100%", maxWidth: "640px" }}
+                className="mx-auto transition-[width,max-width] duration-150"
+                style={{ width: `${100 * zoom}%`, maxWidth: `${640 * zoom}px` }}
               >
                 <div
                   ref={contentRef}
-                  style={{
-                    transform: `scale(${zoom})`,
-                    transformOrigin: "top center",
-                    aspectRatio: "0.66",
-                  }}
-                  className="mushaf-container-query rounded-2xl overflow-hidden shadow-2xl transition-transform duration-150 flex flex-col"
+                  style={{ aspectRatio: "0.66" }}
+                  className="mushaf-container-query rounded-2xl overflow-hidden shadow-2xl flex flex-col"
                 >
                   <div
                     className="h-1.5 flex-shrink-0"
@@ -1311,10 +1334,6 @@ export default function MushafViewer({ locale }: Props) {
         }}
         onOpenMemoDialog={() => {
           openMemoDialog();
-          setMoreSheetOpen(false);
-        }}
-        onEnterFocusMode={() => {
-          enterFocusMode();
           setMoreSheetOpen(false);
         }}
       />

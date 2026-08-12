@@ -1,31 +1,28 @@
-// src/lib/native-chrome-context.tsx
 "use client";
 
 import { createContext, useContext, useState, useCallback } from "react";
 
 /**
  * Lets a page deep in the tree (currently only MushafViewer's Focus Mode)
- * tell NativeLayout to temporarily hide the fixed Bottom Nav — without
- * NativeLayout needing to know anything about Quran-specific concepts
- * like "Focus Mode", and without MushafViewer needing to know anything
- * about NativeLayout's internals.
+ * tell NativeLayout to temporarily hide the fixed Bottom Nav and/or the
+ * fixed top App Bar — without NativeLayout needing to know anything about
+ * Quran-specific concepts like "Focus Mode", and without MushafViewer
+ * needing to know anything about NativeLayout's internals.
  *
- * Provided once by NativeLayout, consumed by any native page that needs
- * this control. On web, WebLayout never renders this provider, so
- * useNativeChrome() falls back to a harmless no-op (see default value
- * below) — components can safely call setHideBottomNav() on web without
- * any error or effect, which is what keeps MushafViewer a single shared
- * component rather than needing a native/web fork.
+ * hideBottomNav must NEVER be set to true by the Quran reader — the
+ * Bottom Navigation must remain visible on the Quran page at all times,
+ * including Focus Mode, per product requirement. hideAppBar is the only
+ * chrome element Focus Mode is allowed to hide.
  *
- * Default state is always `false` (bottom nav visible) so any page that
- * never touches this context — which is every page except the Quran
- * reader today — automatically satisfies "bottom nav stays visible
- * throughout the native app."
+ * Default state is always `false` for both, so any page that never
+ * touches this context automatically keeps full chrome visible.
  */
 
 interface NativeChromeState {
   hideBottomNav: boolean;
   setHideBottomNav: (hidden: boolean) => void;
+  hideAppBar: boolean;
+  setHideAppBar: (hidden: boolean) => void;
 }
 
 const noop = () => {};
@@ -33,6 +30,8 @@ const noop = () => {};
 const NativeChromeContext = createContext<NativeChromeState>({
   hideBottomNav: false,
   setHideBottomNav: noop,
+  hideAppBar: false,
+  setHideAppBar: noop,
 });
 
 export function NativeChromeProvider({
@@ -41,13 +40,20 @@ export function NativeChromeProvider({
   children: React.ReactNode;
 }) {
   const [hideBottomNav, setHideBottomNavState] = useState(false);
+  const [hideAppBar, setHideAppBarState] = useState(false);
 
   const setHideBottomNav = useCallback((hidden: boolean) => {
     setHideBottomNavState(hidden);
   }, []);
 
+  const setHideAppBar = useCallback((hidden: boolean) => {
+    setHideAppBarState(hidden);
+  }, []);
+
   return (
-    <NativeChromeContext.Provider value={{ hideBottomNav, setHideBottomNav }}>
+    <NativeChromeContext.Provider
+      value={{ hideBottomNav, setHideBottomNav, hideAppBar, setHideAppBar }}
+    >
       {children}
     </NativeChromeContext.Provider>
   );

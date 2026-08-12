@@ -115,30 +115,32 @@ interface Props {
 function NativeLayoutInner({ locale, children }: Props) {
   const isAr = locale === "ar";
   const pathname = usePathname();
-  const { hideBottomNav } = useNativeChrome();
+    const { hideBottomNav, hideAppBar } = useNativeChrome();
 
   const routeConfig = resolveAppBarConfig(pathname, locale);
 
   return (
     <div className="min-h-screen bg-surface">
-      <NativeAppBar
-        locale={locale}
-        title={
-          routeConfig
-            ? isAr
-              ? routeConfig.titleAr
-              : routeConfig.titleEn
-            : undefined
-        }
-        subtitle={
-          routeConfig
-            ? isAr
-              ? routeConfig.subtitleAr
-              : routeConfig.subtitleEn
-            : undefined
-        }
-        showBackButton={routeConfig?.showBackButton ?? false}
-      />
+      {!hideAppBar && (
+        <NativeAppBar
+          locale={locale}
+          title={
+            routeConfig
+              ? isAr
+                ? routeConfig.titleAr
+                : routeConfig.titleEn
+              : undefined
+          }
+          subtitle={
+            routeConfig
+              ? isAr
+                ? routeConfig.subtitleAr
+                : routeConfig.subtitleEn
+              : undefined
+          }
+          showBackButton={routeConfig?.showBackButton ?? false}
+        />
+      )}
 
       {/* Scrollable content area. Top padding clears the fixed App Bar
          (56px + safe-area-inset-top). Bottom padding clears the fixed
@@ -149,7 +151,9 @@ function NativeLayoutInner({ locale, children }: Props) {
       <main
         className="native-scroll"
         style={{
-          paddingTop: "calc(56px + env(safe-area-inset-top))",
+          paddingTop: hideAppBar
+            ? "env(safe-area-inset-top)"
+            : "calc(56px + env(safe-area-inset-top))",
           paddingBottom: hideBottomNav
             ? "env(safe-area-inset-bottom)"
             : "calc(64px + env(safe-area-inset-bottom))",
