@@ -5,6 +5,7 @@ import DailyPrayers from "@/components/prayer/DailyPrayers";
 import MonthlyTable from "@/components/prayer/MonthlyTable";
 import QiblaCompass from "@/components/prayer/QiblaCompass";
 import PageHeroHeader from "@/components/layout/PageHeroHeader";
+import { useIsNative } from "@/hooks/useIsNative";
 
 interface Props {
   locale: string;
@@ -15,6 +16,7 @@ type Tab = "daily" | "monthly" | "qibla";
 export default function PrayerTimesPage({ locale }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>("daily");
   const isAr = locale === "ar";
+  const { isNative } = useIsNative();
 
   const tabs: { id: Tab; labelAr: string; labelEn: string; icon: string }[] = [
     { id: "daily", labelAr: "اليوم", labelEn: "Today", icon: "🕐" },
@@ -39,8 +41,16 @@ export default function PrayerTimesPage({ locale }: Props) {
         </div>
       </PageHeroHeader>
 
-      {/* Tabs */}
-      <div className="bg-white border-b border-gray-100 sticky top-16 z-30 shadow-sm">
+      {/* Tabs — sticky offset differs by platform: on web this sits below
+         the real Navbar (top-16); on native it sits inside NativeLayout's
+         already-padded content area (which reserves space for the fixed
+         App Bar), so it only needs to stick to the top of that padded
+         container (top-0), not add a second offset on top of it. */}
+      <div
+        className={`bg-white border-b border-gray-100 sticky z-30 shadow-sm ${
+          isNative ? "top-0" : "top-16"
+        }`}
+      >
         <div className="max-w-3xl mx-auto flex">
           {tabs.map((tab) => (
             <button
