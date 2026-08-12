@@ -27,11 +27,13 @@ import {
  * feeling fade/slide instead of an abrupt swap — without needing to touch
  * the page components themselves.
  *
- * Bottom Nav visibility: wrapped in NativeChromeProvider so any page deep
- * in the tree (currently only MushafViewer's Focus Mode) can temporarily
- * hide the fixed Bottom Nav via useNativeChrome(). Every other page never
- * touches this, so the bar stays visible by default everywhere — only
- * Focus Mode is allowed to hide it, per spec.
+ * Chrome visibility: wrapped in NativeChromeProvider so any page deep in
+ * the tree (currently only MushafViewer's Focus Mode) can temporarily
+ * hide the fixed top App Bar and/or the fixed Bottom Nav via
+ * useNativeChrome(). Every other page never touches this, so both stay
+ * visible by default everywhere. The Bottom Nav in particular must remain
+ * visible on the Quran page at all times, including Focus Mode — Focus
+ * Mode is only ever allowed to hide the App Bar, never the Bottom Nav.
  */
 
 interface RouteAppBarConfig {
@@ -115,7 +117,7 @@ interface Props {
 function NativeLayoutInner({ locale, children }: Props) {
   const isAr = locale === "ar";
   const pathname = usePathname();
-    const { hideBottomNav, hideAppBar } = useNativeChrome();
+  const { hideBottomNav, hideAppBar } = useNativeChrome();
 
   const routeConfig = resolveAppBarConfig(pathname, locale);
 
@@ -143,11 +145,11 @@ function NativeLayoutInner({ locale, children }: Props) {
       )}
 
       {/* Scrollable content area. Top padding clears the fixed App Bar
-         (56px + safe-area-inset-top). Bottom padding clears the fixed
-         Bottom Nav (64px + safe-area-inset-bottom) ONLY when it's
-         actually visible — when hideBottomNav is true (Focus Mode),
-         content can use that reclaimed space instead of leaving an
-         empty gap where a hidden bar used to be. */}
+         (56px + safe-area-inset-top) ONLY when it's actually visible —
+         when hideAppBar is true (Quran Focus Mode), content can use that
+         reclaimed space instead of leaving an empty gap where a hidden
+         bar used to be. Bottom padding clears the fixed Bottom Nav (64px
+         + safe-area-inset-bottom) ONLY when it's actually visible. */}
       <main
         className="native-scroll"
         style={{

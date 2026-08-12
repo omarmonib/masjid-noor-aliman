@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-
 import {
   getMushafPage,
   prefetchNeighborPages,
@@ -117,8 +116,8 @@ function getBismillahLineNumbers(pageData: MushafPageData | null): Set<number> {
 
 export default function MushafViewer({ locale }: Props) {
   const isAr = locale === "ar";
-  // Rendered only after AppChrome resolves the platform (isNative/isNativeApp
-  // is safe to read synchronously here — see ShareButtons.tsx for the same
+  // Rendered only after AppChrome resolves the platform (isNativeApp is
+  // safe to read synchronously here — see ShareButtons.tsx for the same
   // pattern), so this drives every mobile-vs-desktop branch in this file.
   const native = isNativeApp();
   const { setHideAppBar } = useNativeChrome();
@@ -136,6 +135,12 @@ export default function MushafViewer({ locale }: Props) {
   const [surahPanelOpen, setSurahPanelOpen] = useState(false);
 
   // ── Reading Focus Mode ──
+  // On native, entering Focus Mode also hides the fixed top App Bar via
+  // useNativeChrome() so the page reads truly edge-to-edge. The global
+  // Bottom Navigation is NEVER hidden here — it must stay visible on the
+  // Quran page at all times, including Focus Mode, per product
+  // requirement — so setHideBottomNav is intentionally never called
+  // anywhere in this file.
   const [focusMode, setFocusMode] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
   const hideTimerRef = useRef<number | null>(null);
@@ -191,6 +196,10 @@ export default function MushafViewer({ locale }: Props) {
 
   useEffect(() => clearHideTimer, [clearHideTimer]);
 
+  // Safety net: if the component unmounts (route change) while still in
+  // Focus Mode on native, make sure the App Bar comes back — otherwise
+  // navigating away mid-Focus-Mode would leave every other native page
+  // permanently missing its header.
   useEffect(() => {
     return () => {
       if (native) setHideAppBar(false);
@@ -342,7 +351,8 @@ export default function MushafViewer({ locale }: Props) {
   );
 
   // ── Memorization selection (feeds Hifz Mode) ──
-  const [memorizationSelection, setMemorizationSelection] = useState<
+  const [memorizationSelection, setMemorizationSelection] = useState
+  <
     Set<string>
   >(new Set());
   const [selectionAnchor, setSelectionAnchor] = useState<string | null>(null);
@@ -845,9 +855,9 @@ export default function MushafViewer({ locale }: Props) {
         // On native, the toolbar + page-nav stick to the top of the
         // scrollable content area (the outer NativeLayout <main> owns the
         // actual scrolling here — MushafViewer no longer forces its own
-        // h-screen/overflow region on native, see the scrollRef div below).
-        // Web/desktop is unaffected: this wrapper is still a plain flex-col,
-        // so the two rows stack exactly as before.
+        // h-screen/overflow region on native, see the scrollRef div
+        // below). Web/desktop is unaffected: this wrapper is still a
+        // plain flex-col, so the two rows stack exactly as before.
         <div className={`flex flex-col ${native ? "sticky top-0 z-40" : ""}`}>
           {/* Toolbar */}
           {native ? (
@@ -993,9 +1003,7 @@ export default function MushafViewer({ locale }: Props) {
                   <button
                     onClick={toggleSettingsPanel}
                     title={
-                      isAr
-                        ? "إظهار/إخفاء الإعدادات (S)"
-                        : "Show/hide settings (S)"
+                      isAr ? "إظهار/إخفاء الإعدادات (S)" : "Show/hide settings (S)"
                     }
                     className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
                       settingsPanelVisible
@@ -1008,9 +1016,7 @@ export default function MushafViewer({ locale }: Props) {
                   <button
                     onClick={enterFocusMode}
                     title={
-                      isAr
-                        ? "وضع القراءة المركّز (Z)"
-                        : "Reading Focus Mode (Z)"
+                      isAr ? "وضع القراءة المركّز (Z)" : "Reading Focus Mode (Z)"
                     }
                     className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
                   >
@@ -1102,7 +1108,15 @@ export default function MushafViewer({ locale }: Props) {
                 </div>
               </div>
             ) : (
-              // MushafViewer.tsx — inside the non-loading branch
+              // Zoom is applied by resizing this box directly (width in %,
+              // height following from aspect-ratio) instead of CSS
+              // transform: scale(). transform only changes how the box
+              // LOOKS, never the space it occupies in layout — that
+              // mismatch was what produced the shrunken page surrounded
+              // by dead black space on mobile. Resizing the real box means
+              // zoom < 100% now shrinks the actual footprint too, with no
+              // leftover space, on both platforms; at zoom = 1 this is
+              // pixel-identical to the previous fixed 640px box.
               <div
                 className="mx-auto transition-[width,max-width] duration-150"
                 style={{ width: `${100 * zoom}%`, maxWidth: `${640 * zoom}px` }}
@@ -1334,10 +1348,6 @@ export default function MushafViewer({ locale }: Props) {
         }}
         onOpenMemoDialog={() => {
           openMemoDialog();
-          setMoreSheetOpen(false);
-        }}
-        onEnterFocusMode={() => {
-          enterFocusMode();
           setMoreSheetOpen(false);
         }}
       />

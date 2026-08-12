@@ -27,17 +27,20 @@ interface Props {
   onSaveReadingBookmark: () => void;
   onContinueReading: () => void;
   onOpenMemoDialog: () => void;
-  onEnterFocusMode: () => void;
 }
 
 /**
  * Native/mobile "More" sheet — houses every secondary Quran reader control
  * that used to live permanently in the desktop toolbar (reading bookmark,
  * continue reading, memorization bookmark, zoom, fit width/height/screen,
- * fullscreen, focus mode). Nothing here was removed from the app — every
- * action still calls the exact same handler MushafViewer already had
- * (fitWidth/fitHeight/fitScreen/toggleFullscreen/etc are untouched); this
- * component only relocates the buttons out of the cramped mobile toolbar.
+ * fullscreen). Nothing here was removed from the app — every action still
+ * calls the exact same handler MushafViewer already had (fitWidth/
+ * fitHeight/fitScreen/toggleFullscreen/etc are untouched); this component
+ * only relocates the buttons out of the cramped mobile toolbar.
+ *
+ * Reading Focus Mode is NOT here — it has its own dedicated icon in the
+ * main native toolbar (a primary action, not secondary), so it isn't
+ * duplicated inside this sheet.
  *
  * Web/desktop never renders this — MushafViewer keeps its original full
  * toolbar there, unchanged.
@@ -172,7 +175,7 @@ export default function QuranMoreSheet({
           </button>
         </div>
 
-        <div className="py-1 divide-y divide-white/5 border-t border-white/10">
+        <div className="py-1 border-t border-white/10">
           <Row
             icon={
               isFullscreen ? <Minimize2 size={17} /> : <Maximize2 size={17} />
@@ -180,7 +183,6 @@ export default function QuranMoreSheet({
             label={isAr ? "ملء الشاشة" : "Fullscreen"}
             onClick={onToggleFullscreen}
           />
-          
         </div>
       </div>
     </div>
