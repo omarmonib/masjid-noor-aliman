@@ -1336,6 +1336,10 @@ export default function MushafViewer({ locale }: Props) {
           openMemoDialog();
           setMoreSheetOpen(false);
         }}
+        onEnterFocusMode={() => {
+          enterFocusMode();
+          setMoreSheetOpen(false);
+        }}
       />
 
       {contextMenu && (
