@@ -975,7 +975,9 @@ export default function MushafViewer({ locale }: Props) {
                   <button
                     onClick={toggleSettingsPanel}
                     title={
-                      isAr ? "إظهار/إخفاء الإعدادات (S)" : "Show/hide settings (S)"
+                      isAr
+                        ? "إظهار/إخفاء الإعدادات (S)"
+                        : "Show/hide settings (S)"
                     }
                     className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
                       settingsPanelVisible
@@ -988,7 +990,9 @@ export default function MushafViewer({ locale }: Props) {
                   <button
                     onClick={enterFocusMode}
                     title={
-                      isAr ? "وضع القراءة المركّز (Z)" : "Reading Focus Mode (Z)"
+                      isAr
+                        ? "وضع القراءة المركّز (Z)"
+                        : "Reading Focus Mode (Z)"
                     }
                     className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
                   >
@@ -1036,8 +1040,12 @@ export default function MushafViewer({ locale }: Props) {
         </div>
       )}
 
-      {/* Scrollable, zoomable Mushaf area + docked settings panel */}
-      <div className="flex-1 flex min-h-0 relative">
+      {/* Scrollable, zoomable Mushaf area + docked settings panel.
+         flex-1/min-h-0 only makes sense against a height-bound ancestor
+         (the h-screen root on web). On native the root has no fixed
+         height by design, so this wrapper must fall back to plain block
+         flow and just size to its content instead of collapsing. */}
+      <div className={`relative ${native ? "" : "flex-1 flex min-h-0"}`}>
         <div
           ref={scrollRef}
           className={`min-w-0 px-4 py-6 ${

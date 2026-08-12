@@ -24,9 +24,8 @@ import {
 
 /**
  * The native app's "More" screen — grouped settings/menu screen, per the
- * architecture. Notifications, Settings, and Account now link to their
- * real dedicated pages (built earlier in this project) instead of the
- * original inert "Coming soon" placeholder rows.
+ * architecture. Notifications, Settings, and Account link to their real
+ * dedicated pages.
  */
 
 interface Props {
@@ -55,7 +54,10 @@ export default function MorePage({ locale }: Props) {
               session.user?.email ||
               "?")[0].toUpperCase()}
           </div>
-          <div className="flex-1 min-w-0 text-right" dir="rtl">
+          <div
+            className={`flex-1 min-w-0 ${isAr ? "text-right" : "text-left"}`}
+            dir={isAr ? "rtl" : "ltr"}
+          >
             <p className="font-arabic font-bold text-gray-800 truncate">
               {session.user?.name || session.user?.email}
             </p>
