@@ -67,9 +67,6 @@ const loadedFonts = new Set<string>();
 const NO_BISMILLAH_SURAHS = new Set([1, 9]);
 const BISMILLAH_TEXT = "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ";
 
-// Controls auto-hide after this many ms of inactivity once revealed on mobile.
-const CONTROLS_HIDE_DELAY_MS = 3000;
-
 async function loadPageFont(page: number): Promise<void> {
   const fontName = `p${page}-v2`;
   if (loadedFonts.has(fontName)) return;
@@ -120,7 +117,7 @@ export default function MushafViewer({ locale }: Props) {
   // safe to read synchronously here — see ShareButtons.tsx for the same
   // pattern), so this drives every mobile-vs-desktop branch in this file.
   const native = isNativeApp();
-  const { setHideAppBar } = useNativeChrome();
+  const { setHideAppBar, setHideBottomNav } = useNativeChrome();
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
   const pageNumberRef = useRef(1);
@@ -134,75 +131,56 @@ export default function MushafViewer({ locale }: Props) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [surahPanelOpen, setSurahPanelOpen] = useState(false);
 
-  // ── Reading Focus Mode ──
-  // On native, entering Focus Mode also hides the fixed top App Bar via
-  // useNativeChrome() so the page reads truly edge-to-edge. The global
-  // Bottom Navigation is NEVER hidden here — it must stay visible on the
-  // Quran page at all times, including Focus Mode, per product
-  // requirement — so setHideBottomNav is intentionally never called
-  // anywhere in this file.
-  const [focusMode, setFocusMode] = useState(false);
-  const [controlsVisible, setControlsVisible] = useState(true);
-  const hideTimerRef = useRef<number | null>(null);
+  // ── Fullscreen reading (native) ──
+  // A single, explicit on/off toggle. There is no separate "Focus Mode"
+  // concept anymore — one tap hides EVERYTHING (top App Bar, global
+  // Bottom Navigation, the Quran toolbar, the page-nav row, and the audio
+  // bar), leaving only the Quran page itself and one small floating exit
+  // button. This intentionally overrides the app-wide rule that the
+  // Bottom Navigation must always stay visible — that rule applies to
+  // normal browsing; the person has explicitly asked for a true
+  // fullscreen reading mode here, so both setHideAppBar and
+  // setHideBottomNav are used together, only on this page, only while
+  // this toggle is on.
+  const [immersive, setImmersive] = useState(false);
 
   useEffect(() => {
-    setFocusMode(getFocusModePref());
+    setImmersive(getFocusModePref());
   }, []);
 
-  const clearHideTimer = useCallback(() => {
-    if (hideTimerRef.current) {
-      window.clearTimeout(hideTimerRef.current);
-      hideTimerRef.current = null;
-    }
-  }, []);
-
-  const scheduleAutoHide = useCallback(() => {
-    clearHideTimer();
-    hideTimerRef.current = window.setTimeout(() => {
-      setControlsVisible(false);
-    }, CONTROLS_HIDE_DELAY_MS);
-  }, [clearHideTimer]);
-
-  const enterFocusMode = useCallback(() => {
-    setFocusMode(true);
+  const enterImmersive = useCallback(() => {
+    setImmersive(true);
     setFocusModePref(true);
-    setControlsVisible(false);
-    clearHideTimer();
-    if (native) setHideAppBar(true);
-  }, [clearHideTimer, native, setHideAppBar]);
+    if (native) {
+      setHideAppBar(true);
+      setHideBottomNav(true);
+    }
+  }, [native, setHideAppBar, setHideBottomNav]);
 
-  const exitFocusMode = useCallback(() => {
-    setFocusMode(false);
+  const exitImmersive = useCallback(() => {
+    setImmersive(false);
     setFocusModePref(false);
-    setControlsVisible(true);
-    clearHideTimer();
-    if (native) setHideAppBar(false);
-  }, [clearHideTimer, native, setHideAppBar]);
+    if (native) {
+      setHideAppBar(false);
+      setHideBottomNav(false);
+    }
+  }, [native, setHideAppBar, setHideBottomNav]);
 
-  const toggleFocusMode = useCallback(() => {
-    if (focusMode) exitFocusMode();
-    else enterFocusMode();
-  }, [focusMode, enterFocusMode, exitFocusMode]);
+  const toggleImmersive = useCallback(() => {
+    if (immersive) exitImmersive();
+    else enterImmersive();
+  }, [immersive, enterImmersive, exitImmersive]);
 
-  const handleReadingAreaTap = useCallback(() => {
-    if (!focusMode) return;
-    setControlsVisible((v) => {
-      const next = !v;
-      if (next) scheduleAutoHide();
-      else clearHideTimer();
-      return next;
-    });
-  }, [focusMode, scheduleAutoHide, clearHideTimer]);
-
-  useEffect(() => clearHideTimer, [clearHideTimer]);
-
-  // Safety net: if the component unmounts (route change) while still in
-  // Focus Mode on native, make sure the App Bar comes back — otherwise
-  // navigating away mid-Focus-Mode would leave every other native page
-  // permanently missing its header.
+  // Safety net: if the component unmounts (route change) while still
+  // immersive on native, make sure the App Bar and Bottom Nav come back —
+  // otherwise navigating away mid-fullscreen would leave every other
+  // native page permanently missing its chrome.
   useEffect(() => {
     return () => {
-      if (native) setHideAppBar(false);
+      if (native) {
+        setHideAppBar(false);
+        setHideBottomNav(false);
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -351,8 +329,7 @@ export default function MushafViewer({ locale }: Props) {
   );
 
   // ── Memorization selection (feeds Hifz Mode) ──
-  const [memorizationSelection, setMemorizationSelection] = useState
-  <
+  const [memorizationSelection, setMemorizationSelection] = useState<
     Set<string>
   >(new Set());
   const [selectionAnchor, setSelectionAnchor] = useState<string | null>(null);
@@ -608,8 +585,8 @@ export default function MushafViewer({ locale }: Props) {
         case "Escape":
           if (contextMenu) {
             setContextMenu(null);
-          } else if (focusMode) {
-            exitFocusMode();
+          } else if (immersive) {
+            exitImmersive();
           }
           break;
         case "f":
@@ -618,7 +595,7 @@ export default function MushafViewer({ locale }: Props) {
           break;
         case "z":
         case "Z":
-          toggleFocusMode();
+          toggleImmersive();
           break;
         case "s":
         case "S":
@@ -664,9 +641,9 @@ export default function MushafViewer({ locale }: Props) {
     toggleFullscreen,
     setAndPersistZoom,
     toggleSettingsPanel,
-    focusMode,
-    exitFocusMode,
-    toggleFocusMode,
+    immersive,
+    exitImmersive,
+    toggleImmersive,
     contextMenu,
   ]);
 
@@ -713,8 +690,6 @@ export default function MushafViewer({ locale }: Props) {
     if (Math.abs(dx) < 10 && Math.abs(dy) < 10) {
       if (now - lastTapTime.current < 300) {
         setAndPersistZoom(1);
-      } else {
-        handleReadingAreaTap();
       }
       lastTapTime.current = now;
     } else if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
@@ -844,7 +819,9 @@ export default function MushafViewer({ locale }: Props) {
   const firstMeta = pageData?.verseMeta[0];
   const fontLoadedForPage = fontReady && loadedFonts.has(`p${pageNumber}-v2`);
 
-  const chromeVisible = !focusMode || controlsVisible;
+  // No more tap-to-reveal/auto-hide — chrome is simply on or off, matching
+  // the `immersive` toggle exactly.
+  const chromeVisible = !immersive;
 
   return (
     <div
@@ -873,6 +850,13 @@ export default function MushafViewer({ locale }: Props) {
 
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <button
+                    onClick={enterImmersive}
+                    title={isAr ? "ملء الشاشة" : "Fullscreen"}
+                    className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+                  >
+                    <Maximize2 size={16} />
+                  </button>
+                  <button
                     onClick={() => setSearchPanelOpen(true)}
                     title={isAr ? "بحث في القرآن" : "Search Quran"}
                     className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
@@ -896,13 +880,6 @@ export default function MushafViewer({ locale }: Props) {
                     className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
                   >
                     <MoreHorizontal size={16} />
-                  </button>
-                  <button
-                    onClick={enterFocusMode}
-                    title={isAr ? "وضع القراءة المركّز" : "Focus Mode"}
-                    className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
-                  >
-                    <Maximize2 size={16} />
                   </button>
                 </div>
               </div>
@@ -1014,10 +991,8 @@ export default function MushafViewer({ locale }: Props) {
                     <Settings2 size={15} />
                   </button>
                   <button
-                    onClick={enterFocusMode}
-                    title={
-                      isAr ? "وضع القراءة المركّز (Z)" : "Reading Focus Mode (Z)"
-                    }
+                    onClick={enterImmersive}
+                    title={isAr ? "وضع القراءة الكاملة (Z)" : "Fullscreen Reading (Z)"}
                     className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
                   >
                     <Maximize2 size={15} />
@@ -1074,7 +1049,7 @@ export default function MushafViewer({ locale }: Props) {
           ref={scrollRef}
           className={`min-w-0 ${
             native
-              ? focusMode
+              ? immersive
                 ? "px-0 py-0"
                 : "px-4 py-6"
               : "flex-1 overflow-auto px-4 py-6 pb-28"
@@ -1082,7 +1057,7 @@ export default function MushafViewer({ locale }: Props) {
           style={
             native
               ? {
-                  paddingBottom: focusMode
+                  paddingBottom: immersive
                     ? "env(safe-area-inset-bottom)"
                     : "calc(200px + env(safe-area-inset-bottom))",
                 }
@@ -1091,11 +1066,6 @@ export default function MushafViewer({ locale }: Props) {
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
-          onClick={(e) => {
-            if (focusMode && e.target === e.currentTarget) {
-              handleReadingAreaTap();
-            }
-          }}
         >
           <div className="max-w-3xl mx-auto">
             {loading ? (
@@ -1110,13 +1080,8 @@ export default function MushafViewer({ locale }: Props) {
             ) : (
               // Zoom is applied by resizing this box directly (width in %,
               // height following from aspect-ratio) instead of CSS
-              // transform: scale(). transform only changes how the box
-              // LOOKS, never the space it occupies in layout — that
-              // mismatch was what produced the shrunken page surrounded
-              // by dead black space on mobile. Resizing the real box means
-              // zoom < 100% now shrinks the actual footprint too, with no
-              // leftover space, on both platforms; at zoom = 1 this is
-              // pixel-identical to the previous fixed 640px box.
+              // transform: scale(), so a smaller zoom shrinks the actual
+              // footprint too — no dead space around the page.
               <div
                 className="mx-auto transition-[width,max-width] duration-150"
                 style={{ width: `${100 * zoom}%`, maxWidth: `${640 * zoom}px` }}
@@ -1276,17 +1241,15 @@ export default function MushafViewer({ locale }: Props) {
           />
         )}
 
-        {focusMode && (
+        {immersive && (
           <button
-            onClick={exitFocusMode}
-            title={
-              isAr ? "إنهاء وضع القراءة المركّز (Esc)" : "Exit Focus Mode (Esc)"
-            }
-            className="absolute top-3 inset-x-0 mx-auto w-fit flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 hover:bg-black/60 text-white/70 hover:text-white text-xs font-arabic backdrop-blur-sm transition-all z-50"
-            style={{ opacity: chromeVisible ? 1 : 0.35 }}
+            onClick={exitImmersive}
+            title={isAr ? "الخروج من ملء الشاشة (Esc)" : "Exit Fullscreen (Esc)"}
+            className="fixed top-3 inset-x-0 mx-auto w-fit flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 hover:bg-black/60 text-white/70 hover:text-white text-xs font-arabic backdrop-blur-sm transition-all z-50"
+            style={{ top: "calc(12px + env(safe-area-inset-top))" }}
           >
             <Minimize2 size={12} />
-            {isAr ? "إنهاء وضع التركيز" : "Exit Focus"}
+            {isAr ? "الخروج من ملء الشاشة" : "Exit Fullscreen"}
           </button>
         )}
       </div>
