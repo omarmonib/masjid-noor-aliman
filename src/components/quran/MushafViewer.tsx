@@ -67,6 +67,14 @@ const loadedFonts = new Set<string>();
 const NO_BISMILLAH_SURAHS = new Set([1, 9]);
 const BISMILLAH_TEXT = "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ";
 
+// Reference dimensions the Mushaf card is designed against on desktop
+// (640px wide, locked to the same 0.66 aspect-ratio used on the card
+// itself). Used to compute a fullscreen "fit" zoom without depending on
+// DOM measurement timing — see the immersive-mode effect below.
+const MUSHAF_BASE_WIDTH = 640;
+const MUSHAF_ASPECT_RATIO = 0.66;
+const MUSHAF_BASE_HEIGHT = MUSHAF_BASE_WIDTH / MUSHAF_ASPECT_RATIO;
+
 async function loadPageFont(page: number): Promise<void> {
   const fontName = `p${page}-v2`;
   if (loadedFonts.has(fontName)) return;
@@ -132,17 +140,17 @@ export default function MushafViewer({ locale }: Props) {
   const [surahPanelOpen, setSurahPanelOpen] = useState(false);
 
   // ── Fullscreen reading (native) ──
-  // A single, explicit on/off toggle. There is no separate "Focus Mode"
-  // concept anymore — one tap hides EVERYTHING (top App Bar, global
-  // Bottom Navigation, the Quran toolbar, the page-nav row, and the audio
-  // bar), leaving only the Quran page itself and one small floating exit
-  // button. This intentionally overrides the app-wide rule that the
-  // Bottom Navigation must always stay visible — that rule applies to
-  // normal browsing; the person has explicitly asked for a true
-  // fullscreen reading mode here, so both setHideAppBar and
-  // setHideBottomNav are used together, only on this page, only while
-  // this toggle is on.
+  // A single, explicit on/off toggle. One tap hides the top App Bar, the
+  // global Bottom Navigation, the Quran toolbar, page-nav row, and audio
+  // bar (all already gated by chromeVisible below), leaving only the
+  // Mushaf page and a small floating exit pill. This intentionally
+  // overrides the app-wide "never hide the Bottom Nav" rule — only on
+  // this page, only while this toggle is on, per explicit request.
   const [immersive, setImmersive] = useState(false);
+  // Remembers the user's normal reading zoom so entering/exiting
+  // fullscreen never overwrites their persisted preference — see the
+  // fit-to-screen effect below.
+  const preFullscreenZoomRef = useRef<number | null>(null);
 
   useEffect(() => {
     setImmersive(getFocusModePref());
@@ -172,9 +180,7 @@ export default function MushafViewer({ locale }: Props) {
   }, [immersive, enterImmersive, exitImmersive]);
 
   // Safety net: if the component unmounts (route change) while still
-  // immersive on native, make sure the App Bar and Bottom Nav come back —
-  // otherwise navigating away mid-fullscreen would leave every other
-  // native page permanently missing its chrome.
+  // immersive on native, make sure the App Bar and Bottom Nav come back.
   useEffect(() => {
     return () => {
       if (native) {
@@ -184,6 +190,46 @@ export default function MushafViewer({ locale }: Props) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Auto-fit the Mushaf page to the true available screen whenever
+  // fullscreen is toggled on native — computed from fixed reference
+  // dimensions (not live DOM measurement) so it's correct on the very
+  // first frame, with no flash of the wrong size. The page's own
+  // aspect-ratio (0.66, set on the card itself) guarantees it's never
+  // stretched or cropped — only the "zoom" (scale) changes. The user's
+  // normal reading zoom is saved before entering and restored on exit,
+  // so fullscreen never overwrites their persisted preference.
+  useEffect(() => {
+    if (!native) return;
+
+    if (immersive) {
+      preFullscreenZoomRef.current = zoom;
+      const computeFit = () => {
+        const el = scrollRef.current;
+        if (!el) return;
+        const availableW = el.clientWidth;
+        const availableH = el.clientHeight;
+        if (availableW <= 0 || availableH <= 0) return;
+        const fit = Math.min(
+          availableW / MUSHAF_BASE_WIDTH,
+          availableH / MUSHAF_BASE_HEIGHT,
+        );
+        setZoom(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, fit)));
+      };
+      const raf = requestAnimationFrame(computeFit);
+      window.addEventListener("resize", computeFit);
+      return () => {
+        cancelAnimationFrame(raf);
+        window.removeEventListener("resize", computeFit);
+      };
+    }
+
+    if (preFullscreenZoomRef.current !== null) {
+      setZoom(preFullscreenZoomRef.current);
+      preFullscreenZoomRef.current = null;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [immersive, native]);
 
   // ── Settings (reciter) panel ──
   const isDesktopPanel = useIsDesktop(1024);
@@ -675,7 +721,9 @@ export default function MushafViewer({ locale }: Props) {
 
   const onTouchEnd = (e: React.TouchEvent) => {
     if (pinchStartDist.current) {
-      persistZoom(zoom);
+      // Pinch-adjustments made while fullscreen are temporary — don't let
+      // them overwrite the user's normal persisted reading zoom.
+      if (!immersive) persistZoom(zoom);
       pinchStartDist.current = null;
       return;
     }
@@ -688,7 +736,9 @@ export default function MushafViewer({ locale }: Props) {
 
     const now = Date.now();
     if (Math.abs(dx) < 10 && Math.abs(dy) < 10) {
-      if (now - lastTapTime.current < 300) {
+      // Double-tap-to-reset is disabled in fullscreen — it would fight
+      // the auto-computed fit zoom.
+      if (now - lastTapTime.current < 300 && !immersive) {
         setAndPersistZoom(1);
       }
       lastTapTime.current = now;
@@ -1053,20 +1103,28 @@ export default function MushafViewer({ locale }: Props) {
       <div className={`relative ${native ? "" : "flex-1 flex min-h-0"}`}>
         <div
           ref={scrollRef}
-          className={`min-w-0 ${
+          className={
             native
               ? immersive
-                ? "px-0 py-0"
-                : "px-4 py-6"
-              : "flex-1 overflow-auto px-4 py-6 pb-28"
-          }`}
+                ? // True fullscreen: a fixed overlay spanning the entire
+                  // viewport, independent of any parent's layout/height
+                  // quirks — this is what guarantees "maximum available
+                  // screen, edge to edge" regardless of how NativeLayout's
+                  // own <main> is sized. Centering here (both axes) plus
+                  // the card's own aspect-ratio is what keeps the page
+                  // correctly proportioned, never stretched or cropped.
+                  "fixed inset-0 z-[95] bg-[#1a1a1a] flex items-center justify-center overflow-hidden min-w-0"
+                : "min-w-0 px-4 py-6"
+              : "min-w-0 flex-1 overflow-auto px-4 py-6 pb-28"
+          }
           style={
             native
-              ? {
-                  paddingBottom: immersive
-                    ? "env(safe-area-inset-bottom)"
-                    : "calc(200px + env(safe-area-inset-bottom))",
-                }
+              ? immersive
+                ? {
+                    paddingTop: "env(safe-area-inset-top)",
+                    paddingBottom: "env(safe-area-inset-bottom)",
+                  }
+                : { paddingBottom: "calc(200px + env(safe-area-inset-bottom))" }
               : undefined
           }
           onTouchStart={onTouchStart}
@@ -1136,7 +1194,13 @@ export default function MushafViewer({ locale }: Props) {
                             style={{
                               fontFamily:
                                 "'UthmanicHafs1Ver18', 'Amiri Quran', serif",
-                              fontSize: "clamp(15px, 4.8cqw, 26px)",
+                              // Ratio matches the desktop card's clamped
+                              // value exactly at 640px (26/640), so
+                              // desktop is pixel-identical; on narrower
+                              // mobile cards this now scales down
+                              // proportionally instead of using a larger,
+                              // unclamped ratio that caused line-wrapping.
+                              fontSize: "clamp(11px, 4.0625cqw, 26px)",
                               color: "#1B6B4A",
                             }}
                           >
@@ -1165,7 +1229,10 @@ export default function MushafViewer({ locale }: Props) {
                                   style={{
                                     fontFamily:
                                       "'UthmanicHafs1Ver18', 'Amiri Quran', serif",
-                                    fontSize: "clamp(13px, 5cqw, 24px)",
+                                    // Ratio matches desktop's clamped
+                                    // value at 640px (24/640) — see note
+                                    // above.
+                                    fontSize: "clamp(10px, 3.75cqw, 24px)",
                                     color: "#C9A84C",
                                     margin: "0 2px",
                                   }}
@@ -1200,7 +1267,24 @@ export default function MushafViewer({ locale }: Props) {
                                   fontFamily: fontLoadedForPage
                                     ? `p${word.pageNumber}-v2`
                                     : "'UthmanicHafs1Ver18', 'Amiri Quran', serif",
-                                  fontSize: "clamp(16px, 5.4cqw, 28px)",
+                                  // Ratio matches desktop's clamped value
+                                  // at 640px (28/640 = 4.375%) exactly, so
+                                  // desktop's rendering is byte-for-byte
+                                  // unchanged. The old 5.4cqw coefficient
+                                  // was only ever exercised UNCLAMPED on
+                                  // narrow mobile cards (desktop always
+                                  // hit the 28px ceiling), where it
+                                  // produced a larger font-to-page-width
+                                  // ratio than desktop — causing each
+                                  // Mushaf line's words to no longer fit
+                                  // their row, wrapping onto an extra
+                                  // line, overflowing the row's fixed 1fr
+                                  // grid height, and getting visually
+                                  // clipped by the card's overflow-hidden.
+                                  // That was the entire root cause of the
+                                  // native/mobile cropping and mismatched
+                                  // line breaks.
+                                  fontSize: "clamp(12px, 4.375cqw, 28px)",
                                   lineHeight: "1.6",
                                   color: "#1a1a1a",
                                   padding: "0 1px",
@@ -1253,7 +1337,7 @@ export default function MushafViewer({ locale }: Props) {
             title={
               isAr ? "الخروج من ملء الشاشة (Esc)" : "Exit Fullscreen (Esc)"
             }
-            className="fixed top-3 inset-x-0 mx-auto w-fit flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 hover:bg-black/60 text-white/70 hover:text-white text-xs font-arabic backdrop-blur-sm transition-all z-50"
+            className="fixed inset-x-0 mx-auto w-fit flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 hover:bg-black/60 text-white/70 hover:text-white text-xs font-arabic backdrop-blur-sm transition-all z-[100]"
             style={{ top: "calc(12px + env(safe-area-inset-top))" }}
           >
             <Minimize2 size={12} />
@@ -1394,16 +1478,7 @@ export default function MushafViewer({ locale }: Props) {
       )}
 
       {toast && (
-        <div
-          className="fixed left-1/2 -translate-x-1/2 z-[90] bg-black/80 text-white text-sm font-arabic px-4 py-2 rounded-full"
-          style={{
-            bottom: native
-              ? immersive
-                ? "calc(80px + env(safe-area-inset-bottom))"
-                : "calc(280px + env(safe-area-inset-bottom))"
-              : "6rem",
-          }}
-        >
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[90] bg-black/80 text-white text-sm font-arabic px-4 py-2 rounded-full">
           {toast}
         </div>
       )}
