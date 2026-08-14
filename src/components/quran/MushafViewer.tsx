@@ -72,9 +72,7 @@ const BISMILLAH_TEXT = "بِسْمِ اللَّهِ الرَّحْمَٰنِ ا�
 // (640px wide, locked to the same 0.66 aspect-ratio used on the card
 // itself). Used to compute a fullscreen "fit" zoom without depending on
 // DOM measurement timing — see the immersive-mode effect below.
-const MUSHAF_BASE_WIDTH = 640;
 const MUSHAF_ASPECT_RATIO = 0.66;
-const MUSHAF_BASE_HEIGHT = MUSHAF_BASE_WIDTH / MUSHAF_ASPECT_RATIO;
 
 async function loadPageFont(page: number): Promise<void> {
   const fontName = `p${page}-v2`;
@@ -211,11 +209,15 @@ export default function MushafViewer({ locale }: Props) {
         const availableW = el.clientWidth;
         const availableH = el.clientHeight;
         if (availableW <= 0 || availableH <= 0) return;
-        const fit = Math.min(
-          availableW / MUSHAF_BASE_WIDTH,
-          availableH / MUSHAF_BASE_HEIGHT,
-        );
-        setZoom(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, fit)));
+        // The card's rendered width is a PERCENTAGE of this same
+        // container (width: `${100 * zoom}%`) — not a fraction of a
+        // fixed 640px reference. Fit must therefore be computed as
+        // targetWidth / availableW (a ratio of the container itself),
+        // never targetWidth / 640, otherwise zoom ends up in the wrong
+        // units and the card renders far smaller than the real screen.
+        const maxWidthFromHeight = availableH * MUSHAF_ASPECT_RATIO;
+        const targetWidth = Math.min(availableW, maxWidthFromHeight);
+        setZoom(targetWidth / availableW);
       };
       const raf = requestAnimationFrame(computeFit);
       window.addEventListener("resize", computeFit);
