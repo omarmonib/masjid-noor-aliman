@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+
 import {
   getMushafPage,
   prefetchNeighborPages,
@@ -1131,7 +1132,12 @@ export default function MushafViewer({ locale }: Props) {
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
         >
-          <div className="w-full">
+          <div
+            className="max-w-3xl mx-auto"
+            style={
+              native && immersive ? { width: "100%", flexShrink: 0 } : undefined
+            }
+          >
             {loading ? (
               <div className="flex items-center justify-center py-32">
                 <div className="text-center">
@@ -1478,7 +1484,16 @@ export default function MushafViewer({ locale }: Props) {
       )}
 
       {toast && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[90] bg-black/80 text-white text-sm font-arabic px-4 py-2 rounded-full">
+        <div
+          className="fixed left-1/2 -translate-x-1/2 z-[90] bg-black/80 text-white text-sm font-arabic px-4 py-2 rounded-full"
+          style={{
+            bottom: native
+              ? immersive
+                ? "calc(80px + env(safe-area-inset-bottom))"
+                : "calc(280px + env(safe-area-inset-bottom))"
+              : "6rem",
+          }}
+        >
           {toast}
         </div>
       )}
