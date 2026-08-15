@@ -1133,7 +1133,12 @@ export default function MushafViewer({ locale }: Props) {
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
         >
-          <div className="max-w-3xl mx-auto">
+          <div
+            className="max-w-3xl mx-auto"
+            style={
+              native && immersive ? { width: "100%", flexShrink: 0 } : undefined
+            }
+          >
             {loading ? (
               <div className="flex items-center justify-center py-32">
                 <div className="text-center">
