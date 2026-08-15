@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-
 import {
   getMushafPage,
   prefetchNeighborPages,
@@ -68,10 +67,11 @@ const loadedFonts = new Set<string>();
 const NO_BISMILLAH_SURAHS = new Set([1, 9]);
 const BISMILLAH_TEXT = "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ";
 
-// Reference dimensions the Mushaf card is designed against on desktop
-// (640px wide, locked to the same 0.66 aspect-ratio used on the card
-// itself). Used to compute a fullscreen "fit" zoom without depending on
-// DOM measurement timing — see the immersive-mode effect below.
+// Reference/natural page dimensions — the box's LAYOUT size is always
+// min(availableWidth, MUSHAF_BASE_WIDTH), completely independent of zoom
+// (see the render below). MUSHAF_ASPECT_RATIO must match the `aspect-
+// ratio` CSS value set on the card itself.
+const MUSHAF_BASE_WIDTH = 640;
 const MUSHAF_ASPECT_RATIO = 0.66;
 
 async function loadPageFont(page: number): Promise<void> {
@@ -147,8 +147,7 @@ export default function MushafViewer({ locale }: Props) {
   // this page, only while this toggle is on, per explicit request.
   const [immersive, setImmersive] = useState(false);
   // Remembers the user's normal reading zoom so entering/exiting
-  // fullscreen never overwrites their persisted preference — see the
-  // fit-to-screen effect below.
+  // fullscreen never overwrites their persisted preference.
   const preFullscreenZoomRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -191,13 +190,13 @@ export default function MushafViewer({ locale }: Props) {
   }, []);
 
   // Auto-fit the Mushaf page to the true available screen whenever
-  // fullscreen is toggled on native — computed from fixed reference
-  // dimensions (not live DOM measurement) so it's correct on the very
-  // first frame, with no flash of the wrong size. The page's own
-  // aspect-ratio (0.66, set on the card itself) guarantees it's never
-  // stretched or cropped — only the "zoom" (scale) changes. The user's
-  // normal reading zoom is saved before entering and restored on exit,
-  // so fullscreen never overwrites their persisted preference.
+  // fullscreen is toggled on native. The card's LAYOUT size is always
+  // min(availableWidth, MUSHAF_BASE_WIDTH) — see the render below — so
+  // "fit" here means: find the scale multiplier that makes that natural
+  // box occupy the maximum possible area of the screen without exceeding
+  // it on either axis, preserving the aspect ratio exactly (scale is
+  // uniform, so it can never stretch or crop). The user's normal reading
+  // zoom is saved before entering and restored on exit.
   useEffect(() => {
     if (!native) return;
 
@@ -209,15 +208,13 @@ export default function MushafViewer({ locale }: Props) {
         const availableW = el.clientWidth;
         const availableH = el.clientHeight;
         if (availableW <= 0 || availableH <= 0) return;
-        // The card's rendered width is a PERCENTAGE of this same
-        // container (width: `${100 * zoom}%`) — not a fraction of a
-        // fixed 640px reference. Fit must therefore be computed as
-        // targetWidth / availableW (a ratio of the container itself),
-        // never targetWidth / 640, otherwise zoom ends up in the wrong
-        // units and the card renders far smaller than the real screen.
-        const maxWidthFromHeight = availableH * MUSHAF_ASPECT_RATIO;
-        const targetWidth = Math.min(availableW, maxWidthFromHeight);
-        setZoom(targetWidth / availableW);
+        const naturalWidth = Math.min(availableW, MUSHAF_BASE_WIDTH);
+        const naturalHeight = naturalWidth / MUSHAF_ASPECT_RATIO;
+        const fit = Math.min(
+          availableW / naturalWidth,
+          availableH / naturalHeight,
+        );
+        setZoom(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, fit)));
       };
       const raf = requestAnimationFrame(computeFit);
       window.addEventListener("resize", computeFit);
@@ -604,12 +601,17 @@ export default function MushafViewer({ locale }: Props) {
   );
 
   // ── Fit width / height / screen ──
+  // NOTE: the Mushaf card's rendered box size (offsetWidth/offsetHeight)
+  // is now its NATURAL, zoom-independent layout size — zoom is applied
+  // afterward as a pure visual transform (see the render below), so
+  // these no longer need to divide by the current zoom to recover the
+  // natural size the way they did under the old percentage-width model.
   const fitWidth = () => setAndPersistZoom(1);
 
   const fitHeight = () => {
     if (!scrollRef.current || !contentRef.current) return fitWidth();
     const availableH = scrollRef.current.clientHeight - 32;
-    const contentH = contentRef.current.scrollHeight / zoom;
+    const contentH = contentRef.current.offsetHeight;
     if (contentH > 0) setAndPersistZoom(availableH / contentH);
   };
 
@@ -617,8 +619,8 @@ export default function MushafViewer({ locale }: Props) {
     if (!scrollRef.current || !contentRef.current) return fitWidth();
     const availableH = scrollRef.current.clientHeight - 32;
     const availableW = scrollRef.current.clientWidth - 32;
-    const contentH = contentRef.current.scrollHeight / zoom;
-    const contentW = contentRef.current.scrollWidth / zoom;
+    const contentH = contentRef.current.offsetHeight;
+    const contentW = contentRef.current.offsetWidth;
     const scaleH = contentH > 0 ? availableH / contentH : 1;
     const scaleW = contentW > 0 ? availableW / contentW : 1;
     setAndPersistZoom(Math.min(scaleH, scaleW));
@@ -1111,12 +1113,9 @@ export default function MushafViewer({ locale }: Props) {
               ? immersive
                 ? // True fullscreen: a fixed overlay spanning the entire
                   // viewport, independent of any parent's layout/height
-                  // quirks — this is what guarantees "maximum available
-                  // screen, edge to edge" regardless of how NativeLayout's
-                  // own <main> is sized. Centering here (both axes) plus
-                  // the card's own aspect-ratio is what keeps the page
-                  // correctly proportioned, never stretched or cropped.
-                  "fixed inset-0 z-[95] bg-[#1a1a1a] flex items-center justify-center overflow-hidden min-w-0"
+                  // quirks. overflow-auto (not hidden) so the user can
+                  // scroll to reach the page if zoomed beyond the screen.
+                  "fixed inset-0 z-[95] bg-[#1a1a1a] flex items-center justify-center overflow-auto min-w-0"
                 : "min-w-0 px-4 py-6"
               : "min-w-0 flex-1 overflow-auto px-4 py-6 pb-28"
           }
@@ -1134,12 +1133,7 @@ export default function MushafViewer({ locale }: Props) {
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
         >
-          <div
-            className="max-w-3xl mx-auto"
-            style={
-              native && immersive ? { width: "100%", flexShrink: 0 } : undefined
-            }
-          >
+          <div className="max-w-3xl mx-auto">
             {loading ? (
               <div className="flex items-center justify-center py-32">
                 <div className="text-center">
@@ -1150,18 +1144,34 @@ export default function MushafViewer({ locale }: Props) {
                 </div>
               </div>
             ) : (
-              // Zoom is applied by resizing this box directly (width in %,
-              // height following from aspect-ratio) instead of CSS
-              // transform: scale(), so a smaller zoom shrinks the actual
-              // footprint too — no dead space around the page.
+              // The box's LAYOUT size (width/max-width) is fixed at the
+              // "natural" size and is completely independent of `zoom` —
+              // this is what guarantees it's always centered by mx-auto
+              // with zero overflow ambiguity. `zoom` is applied purely as
+              // a visual `transform: scale()` on the inner card with
+              // `transformOrigin: center center`, so enlarging/shrinking
+              // always expands equally in every direction from the
+              // page's own center — this is the fix for the previous
+              // right-anchored zoom (that bug came from resizing the box
+              // via a percentage WIDTH, which overflowed asymmetrically
+              // inside the app's RTL scroll container). Because transform
+              // never changes layout size, the cqw-based font sizing
+              // inside (which reads layout size, not paint size) is
+              // completely unaffected by zoom — line breaks and page
+              // composition stay identical at every zoom level and every
+              // screen size.
               <div
-                className="mx-auto transition-[width,max-width] duration-150"
-                style={{ width: `${100 * zoom}%`, maxWidth: `${640 * zoom}px` }}
+                className="mx-auto"
+                style={{ width: "100%", maxWidth: `${MUSHAF_BASE_WIDTH}px` }}
               >
                 <div
                   ref={contentRef}
-                  style={{ aspectRatio: "0.66" }}
-                  className="mushaf-container-query rounded-2xl overflow-hidden shadow-2xl flex flex-col"
+                  style={{
+                    aspectRatio: "0.66",
+                    transform: `scale(${zoom})`,
+                    transformOrigin: "center center",
+                  }}
+                  className="mushaf-container-query rounded-2xl overflow-hidden shadow-2xl flex flex-col transition-transform duration-150"
                 >
                   <div
                     className="h-1.5 flex-shrink-0"
@@ -1184,12 +1194,19 @@ export default function MushafViewer({ locale }: Props) {
 
                   <div
                     dir="rtl"
-                    className="flex-1 min-h-0 px-6"
+                    className="flex-1 min-h-0"
                     style={{
                       display: "grid",
                       gridTemplateRows: `repeat(${pageRows.length}, 1fr)`,
                       background:
                         "linear-gradient(135deg, #fdf8f0 0%, #faf4e8 100%)",
+                      // Reduced from the previous fixed px-6 (24px) — this
+                      // is expressed in cqw so the proportion stays
+                      // identical at every screen size (matches the
+                      // font-size coefficients below), while giving the
+                      // Quran text noticeably more of the page's width.
+                      paddingLeft: "1.8cqw",
+                      paddingRight: "1.8cqw",
                     }}
                   >
                     {pageRows.map((row, rowIdx) =>
@@ -1202,12 +1219,6 @@ export default function MushafViewer({ locale }: Props) {
                             style={{
                               fontFamily:
                                 "'UthmanicHafs1Ver18', 'Amiri Quran', serif",
-                              // Ratio matches the desktop card's clamped
-                              // value exactly at 640px (26/640), so
-                              // desktop is pixel-identical; on narrower
-                              // mobile cards this now scales down
-                              // proportionally instead of using a larger,
-                              // unclamped ratio that caused line-wrapping.
                               fontSize: "clamp(11px, 4.0625cqw, 26px)",
                               color: "#1B6B4A",
                             }}
@@ -1237,9 +1248,6 @@ export default function MushafViewer({ locale }: Props) {
                                   style={{
                                     fontFamily:
                                       "'UthmanicHafs1Ver18', 'Amiri Quran', serif",
-                                    // Ratio matches desktop's clamped
-                                    // value at 640px (24/640) — see note
-                                    // above.
                                     fontSize: "clamp(10px, 3.75cqw, 24px)",
                                     color: "#C9A84C",
                                     margin: "0 2px",
@@ -1275,23 +1283,6 @@ export default function MushafViewer({ locale }: Props) {
                                   fontFamily: fontLoadedForPage
                                     ? `p${word.pageNumber}-v2`
                                     : "'UthmanicHafs1Ver18', 'Amiri Quran', serif",
-                                  // Ratio matches desktop's clamped value
-                                  // at 640px (28/640 = 4.375%) exactly, so
-                                  // desktop's rendering is byte-for-byte
-                                  // unchanged. The old 5.4cqw coefficient
-                                  // was only ever exercised UNCLAMPED on
-                                  // narrow mobile cards (desktop always
-                                  // hit the 28px ceiling), where it
-                                  // produced a larger font-to-page-width
-                                  // ratio than desktop — causing each
-                                  // Mushaf line's words to no longer fit
-                                  // their row, wrapping onto an extra
-                                  // line, overflowing the row's fixed 1fr
-                                  // grid height, and getting visually
-                                  // clipped by the card's overflow-hidden.
-                                  // That was the entire root cause of the
-                                  // native/mobile cropping and mismatched
-                                  // line breaks.
                                   fontSize: "clamp(12px, 4.375cqw, 28px)",
                                   lineHeight: "1.6",
                                   color: "#1a1a1a",
@@ -1486,16 +1477,7 @@ export default function MushafViewer({ locale }: Props) {
       )}
 
       {toast && (
-        <div
-          className="fixed left-1/2 -translate-x-1/2 z-[90] bg-black/80 text-white text-sm font-arabic px-4 py-2 rounded-full"
-          style={{
-            bottom: native
-              ? immersive
-                ? "calc(80px + env(safe-area-inset-bottom))"
-                : "calc(280px + env(safe-area-inset-bottom))"
-              : "6rem",
-          }}
-        >
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[90] bg-black/80 text-white text-sm font-arabic px-4 py-2 rounded-full">
           {toast}
         </div>
       )}
