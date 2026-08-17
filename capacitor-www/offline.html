@@ -16,13 +16,18 @@
 
   html, body {
     height: 100%;
-    /* System Arabic-capable fonts only — no network fonts allowed here */
     font-family: -apple-system, "Segoe UI", Tahoma, Arial, sans-serif;
     background: var(--surface);
     color: #1A1A1A;
   }
 
   body {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  /* ── Home screen (unchanged look from before) ── */
+  #home {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -49,12 +54,7 @@
 
   .icon-wrap svg { width: 40px; height: 40px; }
 
-  h1 {
-    font-size: 22px;
-    font-weight: 700;
-    color: #1A1A1A;
-    margin-bottom: 10px;
-  }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 10px; }
 
   p.desc {
     font-size: 14px;
@@ -85,24 +85,11 @@
     border-color: #FDE68A;
   }
 
-  .dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: currentColor;
-    flex-shrink: 0;
-  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+  .status-pill.checking .dot { animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-  .status-pill.checking .dot {
-    animation: pulse 1s ease-in-out infinite;
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
-  }
-
-  button#retryBtn {
+  button.primary-btn {
     font-family: inherit;
     font-size: 15px;
     font-weight: 700;
@@ -115,97 +102,208 @@
     box-shadow: 0 4px 16px rgba(27, 107, 74, 0.3);
     transition: transform 0.15s ease, opacity 0.15s ease;
   }
+  button.primary-btn:active { transform: scale(0.96); }
+  button.primary-btn:disabled { opacity: 0.6; cursor: default; }
 
-  button#retryBtn:active { transform: scale(0.96); }
-  button#retryBtn:disabled { opacity: 0.6; cursor: default; }
+  .available-list { margin-top: 36px; padding-top: 24px; border-top: 1px solid rgba(0,0,0,0.06); width: 100%; max-width: 340px; }
+  .available-list p.label { font-size: 12px; color: #9CA3AF; margin-bottom: 12px; font-weight: 600; }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
 
-  .available-list {
-    margin-top: 36px;
-    padding-top: 24px;
-    border-top: 1px solid rgba(0,0,0,0.06);
-    width: 100%;
-    max-width: 320px;
-  }
-
-  .available-list p.label {
-    font-size: 12px;
-    color: #9CA3AF;
-    margin-bottom: 12px;
-    font-weight: 600;
-  }
-
-  .chip-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    justify-content: center;
-  }
-
-  .chip {
+  /* Chips are now real buttons */
+  button.chip {
+    font-family: inherit;
     font-size: 12px;
     color: var(--primary);
     background: rgba(27, 107, 74, 0.08);
     border: 1px solid rgba(27, 107, 74, 0.15);
-    padding: 6px 12px;
+    padding: 8px 14px;
     border-radius: 999px;
     font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.1s ease, background 0.15s ease;
+  }
+  button.chip:active { transform: scale(0.95); background: rgba(27, 107, 74, 0.16); }
+  button.chip.disabled-look { opacity: 0.5; }
+
+  .brand { position: fixed; bottom: calc(16px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); font-size: 12px; color: #B0B0B0; }
+
+  /* ── Section screens ── */
+  .section {
+    display: none;
+    min-height: 100vh;
+    min-height: 100dvh;
+    flex-direction: column;
+  }
+  .section.active { display: flex; }
+
+  .section-header {
+    background: linear-gradient(to right, var(--primary-dark), var(--primary));
+    color: white;
+    padding: 16px;
+    padding-top: calc(16px + env(safe-area-inset-top));
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .back-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.12);
+    border: none;
+    color: white;
+    font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .section-title { font-size: 17px; font-weight: 700; }
+
+  .section-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
   }
 
-  .brand {
-    position: fixed;
-    bottom: calc(16px + env(safe-area-inset-bottom));
-    font-size: 12px;
-    color: #B0B0B0;
+  /* Prayer times */
+  .prayer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+  .prayer-card {
+    background: white; border: 1px solid #F0EDE7; border-radius: 16px;
+    padding: 14px; text-align: center;
   }
+  .prayer-card .name { font-size: 13px; font-weight: 700; color: #374151; margin-bottom: 6px; }
+  .prayer-card .time { font-family: monospace; font-size: 18px; font-weight: 700; color: var(--primary); }
+  .date-card { background: white; border: 1px solid #F0EDE7; border-radius: 16px; padding: 14px; text-align: center; margin-bottom: 4px; }
+  .date-card .greg { font-size: 14px; font-weight: 600; color: #374151; }
+  .date-card .loc { font-size: 12px; color: #9CA3AF; margin-top: 4px; }
+
+  /* Adhkar */
+  .category-item {
+    background: white; border: 1px solid #F0EDE7; border-radius: 14px;
+    padding: 14px 16px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px;
+    cursor: pointer;
+  }
+  .category-item .icon { font-size: 22px; }
+  .category-item .label { flex: 1; font-weight: 700; font-size: 14px; }
+  .category-item .count { font-size: 12px; color: #9CA3AF; }
+  .dhikr-card { background: white; border: 1px solid #F0EDE7; border-radius: 16px; padding: 16px; margin-bottom: 12px; }
+  .dhikr-text { font-size: 17px; line-height: 1.9; text-align: right; }
+  .dhikr-count { margin-top: 10px; font-size: 12px; color: var(--primary); font-weight: 700; }
+
+  /* Adhan */
+  .voice-item {
+    background: white; border: 1px solid #F0EDE7; border-radius: 14px;
+    padding: 14px 16px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .voice-item .label { font-weight: 700; font-size: 14px; }
+  .play-btn {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+    color: white; border: none; font-size: 15px; cursor: pointer; flex-shrink: 0;
+  }
+
+  .empty-note { text-align: center; color: #9CA3AF; font-size: 13px; padding: 40px 20px; line-height: 1.8; }
 </style>
 </head>
 <body>
 
-  <div class="icon-wrap">
-    <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9z" opacity="0.35"/>
-      <path d="M5 13l2 2a8 8 0 0111 0l2-2C15.14 8.14 8.87 8.14 5 13z" opacity="0.6"/>
-      <path d="M9 17l2 2a3.5 3.5 0 015 0l2-2a6.5 6.5 0 00-9 0z" opacity="0.9"/>
-      <line x1="2" y1="2" x2="22" y2="22"/>
-    </svg>
-  </div>
+  <!-- ══════════ HOME ══════════ -->
+  <div id="home">
+    <div class="icon-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9z" opacity="0.35"/>
+        <path d="M5 13l2 2a8 8 0 0111 0l2-2C15.14 8.14 8.87 8.14 5 13z" opacity="0.6"/>
+        <path d="M9 17l2 2a3.5 3.5 0 015 0l2-2a6.5 6.5 0 00-9 0z" opacity="0.9"/>
+        <line x1="2" y1="2" x2="22" y2="22"/>
+      </svg>
+    </div>
 
-  <h1>لا يوجد اتصال بالإنترنت</h1>
-  <p class="desc">
-    يتعذّر الاتصال حالياً بخوادم التطبيق. يمكنك الاستمرار في استخدام
-    القرآن الكريم والأذكار ومواقيت الصلاة والأذان دون الحاجة إلى إنترنت،
-    وسيُعاد الاتصال تلقائياً بمجرد توفره.
-  </p>
+    <h1>لا يوجد اتصال بالإنترنت</h1>
+    <p class="desc">
+      يتعذّر الاتصال حالياً بخوادم التطبيق. يمكنك الاستمرار في استخدام
+      الأذكار ومواقيت الصلاة والأذان دون الحاجة إلى إنترنت،
+      وسيُعاد الاتصال تلقائياً بمجرد توفره.
+    </p>
 
-  <div class="status-pill checking" id="statusPill">
-    <span class="dot"></span>
-    <span id="statusText">جارٍ التحقق من الاتصال...</span>
-  </div>
+    <div class="status-pill checking" id="statusPill">
+      <span class="dot"></span>
+      <span id="statusText">جارٍ التحقق من الاتصال...</span>
+    </div>
 
-  <button id="retryBtn">إعادة المحاولة الآن</button>
+    <button class="primary-btn" id="retryBtn">إعادة المحاولة الآن</button>
 
-  <div class="available-list">
-    <p class="label">متاح بدون إنترنت</p>
-    <div class="chip-row">
-      <span class="chip">📖 القرآن الكريم</span>
-      <span class="chip">📿 الأذكار</span>
-      <span class="chip">🕐 مواقيت الصلاة</span>
-      <span class="chip">🔊 الأذان</span>
+    <div class="available-list">
+      <p class="label">متاح بدون إنترنت</p>
+      <div class="chip-row">
+        <button class="chip" data-open="prayer">🕐 مواقيت الصلاة</button>
+        <button class="chip" data-open="adhkar">📿 الأذكار</button>
+        <button class="chip disabled-look" data-open="quran">📖 القرآن الكريم</button>
+        <button class="chip" data-open="adhan">🔊 الأذان</button>
+      </div>
     </div>
   </div>
 
-  <div class="brand">مسجد نور الإيمان</div>
+  <!-- ══════════ PRAYER TIMES ══════════ -->
+  <div class="section" id="section-prayer">
+    <div class="section-header">
+      <button class="back-btn" data-close>→</button>
+      <span class="section-title">مواقيت الصلاة</span>
+    </div>
+    <div class="section-body">
+      <div class="date-card">
+        <div class="greg" id="prayerDate">—</div>
+        <div class="loc">بلبيس — الشرقية · الهيئة المصرية العامة للمساحة</div>
+      </div>
+      <div class="prayer-grid" id="prayerGrid"></div>
+    </div>
+  </div>
 
+  <!-- ══════════ ADHKAR ══════════ -->
+  <div class="section" id="section-adhkar">
+    <div class="section-header">
+      <button class="back-btn" id="adhkarBack">→</button>
+      <span class="section-title" id="adhkarTitle">الأذكار</span>
+    </div>
+    <div class="section-body" id="adhkarBody"></div>
+  </div>
+
+  <!-- ══════════ ADHAN ══════════ -->
+  <div class="section" id="section-adhan">
+    <div class="section-header">
+      <button class="back-btn" data-close>→</button>
+      <span class="section-title">الأذان</span>
+    </div>
+    <div class="section-body" id="adhanBody"></div>
+  </div>
+
+  <!-- ══════════ QURAN (offline-limited) ══════════ -->
+  <div class="section" id="section-quran">
+    <div class="section-header">
+      <button class="back-btn" data-close>→</button>
+      <span class="section-title">القرآن الكريم</span>
+    </div>
+    <div class="section-body">
+      <div class="empty-note">
+        📖<br/><br/>
+        نص القرآن الكريم يُحمَّل من الخادم مباشرة ولا يتوفر بعد نسخة
+        محفوظة على الجهاز بالكامل.<br/><br/>
+        بمجرد عودة الاتصال بالإنترنت سيعمل القارئ كالمعتاد، وسيتم
+        حفظ الصفحات التي تمت زيارتها سابقاً تلقائياً لتصفّحها لاحقاً بدون اتصال.
+      </div>
+    </div>
+  </div>
+
+<script src="adhan.js"></script>
+<script src="adhkar-data.js"></script>
 <script>
 (function () {
-  // Kept in sync with capacitor.config.ts's server.url — this is the
-  // real app entry point we're trying to get back to.
   var APP_URL = "https://masjid-noor-aliman.vercel.app/";
 
+  // ── Connectivity polling (unchanged behavior) ──
   var statusPill = document.getElementById("statusPill");
   var statusText = document.getElementById("statusText");
   var retryBtn = document.getElementById("retryBtn");
-
   var pollTimer = null;
   var pollIntervalMs = 3000;
   var checking = false;
@@ -215,84 +313,196 @@
     statusPill.classList.toggle("checking", isChecking);
     retryBtn.disabled = isChecking;
   }
-
   function setOfflineState() {
     statusPill.classList.add("checking");
     statusText.textContent = "لا يوجد اتصال — سيُعاد الاتصال تلقائياً";
   }
-
-  // A HEAD/no-cors ping is more reliable than navigator.onLine alone,
-  // which only reflects whether a network interface is up (e.g. a wifi
-  // connection with no real internet route still reports onLine=true).
   function pingServer(callback) {
-    if (typeof fetch !== "function") {
-      callback(navigator.onLine);
-      return;
-    }
+    if (typeof fetch !== "function") { callback(navigator.onLine); return; }
     var controller = typeof AbortController !== "undefined" ? new AbortController() : null;
     var timeoutId = controller ? setTimeout(function () { controller.abort(); }, 4000) : null;
-
-    fetch(APP_URL, {
-      method: "HEAD",
-      mode: "no-cors",
-      cache: "no-store",
-      signal: controller ? controller.signal : undefined
-    })
-      .then(function () {
-        if (timeoutId) clearTimeout(timeoutId);
-        callback(true);
-      })
-      .catch(function () {
-        if (timeoutId) clearTimeout(timeoutId);
-        callback(false);
-      });
+    fetch(APP_URL, { method: "HEAD", mode: "no-cors", cache: "no-store", signal: controller ? controller.signal : undefined })
+      .then(function () { if (timeoutId) clearTimeout(timeoutId); callback(true); })
+      .catch(function () { if (timeoutId) clearTimeout(timeoutId); callback(false); });
   }
-
   function attemptReconnect(manual) {
     if (checking && !manual) return;
     setChecking(true);
     statusText.textContent = "جارٍ التحقق من الاتصال...";
-
     pingServer(function (isOnline) {
       if (isOnline) {
         statusText.textContent = "تم الاتصال — جارٍ التحميل...";
-        // Small delay so the "connected" state is visible before the
-        // navigation away from this page happens.
-        setTimeout(function () {
-          window.location.href = APP_URL;
-        }, 400);
+        setTimeout(function () { window.location.href = APP_URL; }, 400);
       } else {
         setOfflineState();
         setChecking(false);
       }
     });
   }
-
-  retryBtn.addEventListener("click", function () {
-    attemptReconnect(true);
-  });
-
-  // Auto-poll in the background so the app reconnects the moment
-  // connectivity returns, without requiring the user to tap anything —
-  // covers scenario 4 (internet comes back automatically).
+  retryBtn.addEventListener("click", function () { attemptReconnect(true); });
   function startPolling() {
     if (pollTimer) return;
-    pollTimer = setInterval(function () {
-      attemptReconnect(false);
-    }, pollIntervalMs);
+    pollTimer = setInterval(function () { attemptReconnect(false); }, pollIntervalMs);
   }
-
-  // Native browser events fire immediately on connectivity change,
-  // which is faster than waiting for the next poll tick.
-  window.addEventListener("online", function () {
-    attemptReconnect(true);
-  });
+  window.addEventListener("online", function () { attemptReconnect(true); });
   window.addEventListener("offline", setOfflineState);
-
   setOfflineState();
   startPolling();
-  // First check shortly after load, in case connectivity is already back.
   setTimeout(function () { attemptReconnect(false); }, 1000);
+
+  // ── Section navigation (THE ACTUAL FIX) ──
+  var homeEl = document.getElementById("home");
+  var sections = {
+    prayer: document.getElementById("section-prayer"),
+    adhkar: document.getElementById("section-adhkar"),
+    adhan: document.getElementById("section-adhan"),
+    quran: document.getElementById("section-quran"),
+  };
+
+  function openSection(id) {
+    homeEl.style.display = "none";
+    Object.keys(sections).forEach(function (k) {
+      sections[k].classList.toggle("active", k === id);
+    });
+    if (id === "prayer") renderPrayerTimes();
+    if (id === "adhkar") renderAdhkarCategories();
+    if (id === "adhan") renderAdhanVoices();
+  }
+
+  function closeSection() {
+    Object.keys(sections).forEach(function (k) { sections[k].classList.remove("active"); });
+    homeEl.style.display = "flex";
+  }
+
+  document.querySelectorAll("[data-open]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      openSection(btn.getAttribute("data-open"));
+    });
+  });
+  document.querySelectorAll("[data-close]").forEach(function (btn) {
+    btn.addEventListener("click", closeSection);
+  });
+
+  // ── Prayer times (uses bundled adhan.js — same library the app uses) ──
+  var PRAYER_LABELS = { fajr: "الفجر", sunrise: "الشروق", dhuhr: "الظهر", asr: "العصر", maghrib: "المغرب", isha: "العشاء" };
+  var GREG_MONTHS = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+
+  function fmtTime(date) {
+    var h = date.getHours(), m = date.getMinutes();
+    var period = h >= 12 ? "م" : "ص";
+    var h12 = h % 12; if (h12 === 0) h12 = 12;
+    return String(h12).padStart(2, "0") + ":" + String(m).padStart(2, "0") + " " + period;
+  }
+
+  function renderPrayerTimes() {
+    if (typeof adhan === "undefined") {
+      document.getElementById("prayerGrid").innerHTML =
+        '<div class="empty-note" style="grid-column:1/-1">تعذّر تحميل حاسبة المواقيت.</div>';
+      return;
+    }
+    var coords = new adhan.Coordinates(30.8708, 31.5588);
+    var params = adhan.CalculationMethod.Egyptian();
+    var now = new Date();
+    var pt = new adhan.PrayerTimes(coords, now, params);
+
+    document.getElementById("prayerDate").textContent =
+      now.getDate() + " " + GREG_MONTHS[now.getMonth()] + " " + now.getFullYear();
+
+    var order = ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"];
+    var html = "";
+    order.forEach(function (key) {
+      var time = pt[key];
+      html += '<div class="prayer-card"><div class="name">' + PRAYER_LABELS[key] +
+        '</div><div class="time">' + fmtTime(time) + "</div></div>";
+    });
+    document.getElementById("prayerGrid").innerHTML = html;
+  }
+
+  // ── Adhkar (uses bundled adhkar-data.js) ──
+  var adhkarView = "list"; // "list" | "category"
+
+  function renderAdhkarCategories() {
+    adhkarView = "list";
+    document.getElementById("adhkarTitle").textContent = "الأذكار";
+    document.getElementById("adhkarBack").setAttribute("data-close", "");
+    document.getElementById("adhkarBack").onclick = closeSection;
+
+    if (typeof ADHKAR_DATA === "undefined") {
+      document.getElementById("adhkarBody").innerHTML = '<div class="empty-note">تعذّر تحميل بيانات الأذكار.</div>';
+      return;
+    }
+    var html = "";
+    ADHKAR_DATA.forEach(function (cat, idx) {
+      html += '<div class="category-item" data-cat="' + idx + '">' +
+        '<span class="icon">📿</span>' +
+        '<span class="label">' + cat.category + "</span>" +
+        '<span class="count">' + cat.array.length + " ذكر</span></div>";
+    });
+    document.getElementById("adhkarBody").innerHTML = html;
+
+    document.querySelectorAll(".category-item").forEach(function (el) {
+      el.addEventListener("click", function () {
+        renderAdhkarCategory(parseInt(el.getAttribute("data-cat"), 10));
+      });
+    });
+  }
+
+  function renderAdhkarCategory(idx) {
+    adhkarView = "category";
+    var cat = ADHKAR_DATA[idx];
+    document.getElementById("adhkarTitle").textContent = cat.category;
+    document.getElementById("adhkarBack").onclick = renderAdhkarCategories;
+
+    var html = "";
+    cat.array.forEach(function (dhikr) {
+      html += '<div class="dhikr-card"><div class="dhikr-text">' + dhikr.text + "</div>" +
+        '<div class="dhikr-count">التكرار: ' + dhikr.count + "</div></div>";
+    });
+    document.getElementById("adhkarBody").innerHTML = html;
+  }
+
+  // ── Adhan (bundled audio files already used for local notifications) ──
+  var ADHAN_VOICES = [
+    { id: "nabawi", label: "الشيخ عادل كاتب — المسجد النبوي", file: "audio/adhan_nabawi.wav" },
+    { id: "masri", label: "الشيخ عبد الباسط عبد الصمد — مصر", file: "audio/adhan_masri.wav" },
+    { id: "makkah", label: "الشيخ علي ملا — الحرم المكي", file: "audio/adhan_makkah.wav" },
+    { id: "short", label: "أذان قصير", file: "audio/adhan_short.wav" },
+  ];
+
+  var currentAudio = null;
+  var currentPlayingBtn = null;
+
+  function renderAdhanVoices() {
+    var html = "";
+    ADHAN_VOICES.forEach(function (v) {
+      html += '<div class="voice-item"><span class="label">' + v.label + '</span>' +
+        '<button class="play-btn" data-file="' + v.file + '">▶</button></div>';
+    });
+    document.getElementById("adhanBody").innerHTML = html;
+
+    document.querySelectorAll(".play-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var file = btn.getAttribute("data-file");
+        if (currentAudio && currentPlayingBtn === btn) {
+          currentAudio.pause();
+          currentAudio = null;
+          currentPlayingBtn = null;
+          btn.textContent = "▶";
+          return;
+        }
+        if (currentAudio) {
+          currentAudio.pause();
+          if (currentPlayingBtn) currentPlayingBtn.textContent = "▶";
+        }
+        var audio = new Audio(file);
+        audio.play().catch(function () {});
+        audio.onended = function () { btn.textContent = "▶"; currentAudio = null; currentPlayingBtn = null; };
+        currentAudio = audio;
+        currentPlayingBtn = btn;
+        btn.textContent = "⏸";
+      });
+    });
+  }
 })();
 </script>
 
