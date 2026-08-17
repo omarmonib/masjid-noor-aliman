@@ -5,6 +5,12 @@
 <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
 <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
+<!-- Required for @capacitor/network: lets the app read live connectivity
+     state (Network.getStatus()) and receive networkStatusChange events,
+     which drives the offline-first UI and the automatic MainActivity
+     offline-page fallback/retry logic. -->
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+
 <!-- Required for @capacitor-community/background-mode: keeps the WebView
      (and its <audio> playback) alive while the app is backgrounded or the
      screen is locked, via an Android foreground service + wake lock. -->

@@ -2,20 +2,31 @@
 
 import { useState, useEffect } from "react";
 import { NEWS_CATEGORIES, type NewsItem } from "@/lib/mosque-content";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import OfflineBanner from "@/components/shared/OfflineBanner";
 
 export default function NewsSection({ locale }: { locale: string }) {
   const isAr = locale === "ar";
+  const { isOnline, isResolved } = useNetworkStatus();
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<NewsItem | null>(null);
   const [filter, setFilter] = useState<string>("all");
 
   useEffect(() => {
+    // Avoid firing a doomed fetch while offline — wait for connectivity
+    // to resolve first, matching the "no unnecessary API calls" requirement.
+    if (!isResolved) return;
+    if (!isOnline) {
+      setLoading(false);
+      return;
+    }
     fetch("/api/news")
       .then((r) => r.json())
       .then((data) => setNews(Array.isArray(data) ? data : []))
+      .catch(() => setNews([]))
       .finally(() => setLoading(false));
-  }, []);
+  }, [isResolved, isOnline]);
 
   const filtered =
     filter === "all" ? news : news.filter((n) => n.category === filter);
@@ -43,11 +54,7 @@ export default function NewsSection({ locale }: { locale: string }) {
               <span className="text-xs text-gray-400 font-arabic">
                 {new Date(selected.publishedAt).toLocaleDateString(
                   isAr ? "ar-EG" : "en-US",
-                  {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  },
+                  { year: "numeric", month: "long", day: "numeric" },
                 )}
               </span>
             </div>
@@ -75,35 +82,42 @@ export default function NewsSection({ locale }: { locale: string }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-2 flex-wrap">
-        {["all", ...NEWS_CATEGORIES.map((c) => c.id)].map((cat) => (
-          <button
-            key={cat}
-            onClick={() => setFilter(cat)}
-            className={`px-4 py-2 rounded-full font-arabic text-sm transition-all ${
-              filter === cat
-                ? "bg-primary text-white"
-                : "bg-white border border-gray-200 text-gray-600 hover:border-primary/40"
-            }`}
-          >
-            {cat === "all"
-              ? isAr
-                ? "الكل"
-                : "All"
-              : isAr
-                ? NEWS_CATEGORIES.find((c) => c.id === cat)?.labelAr
-                : NEWS_CATEGORIES.find((c) => c.id === cat)?.labelEn}
-          </button>
-        ))}
-      </div>
+      <OfflineBanner
+        locale={locale}
+        featureLabel={isAr ? "الأخبار والإعلانات" : "News & Announcements"}
+      />
 
-      {loading && (
+      {isOnline && (
+        <div className="flex gap-2 flex-wrap">
+          {["all", ...NEWS_CATEGORIES.map((c) => c.id)].map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setFilter(cat)}
+              className={`px-4 py-2 rounded-full font-arabic text-sm transition-all ${
+                filter === cat
+                  ? "bg-primary text-white"
+                  : "bg-white border border-gray-200 text-gray-600 hover:border-primary/40"
+              }`}
+            >
+              {cat === "all"
+                ? isAr
+                  ? "الكل"
+                  : "All"
+                : isAr
+                  ? NEWS_CATEGORIES.find((c) => c.id === cat)?.labelAr
+                  : NEWS_CATEGORIES.find((c) => c.id === cat)?.labelEn}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {loading && isOnline && (
         <div className="text-center py-16 text-gray-400 font-arabic">
           {isAr ? "جارٍ التحميل..." : "Loading..."}
         </div>
       )}
 
-      {!loading && (
+      {!loading && isOnline && (
         <div className="space-y-4">
           {filtered.map((post) => (
             <button
@@ -117,11 +131,7 @@ export default function NewsSection({ locale }: { locale: string }) {
                     <span className="text-xs text-gray-400 font-arabic">
                       {new Date(post.publishedAt).toLocaleDateString(
                         isAr ? "ar-EG" : "en-US",
-                        {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                        },
+                        { year: "numeric", month: "short", day: "numeric" },
                       )}
                     </span>
                     <span className="text-xs px-2 py-0.5 rounded-full font-arabic bg-primary/10 text-primary">
@@ -156,7 +166,7 @@ export default function NewsSection({ locale }: { locale: string }) {
         </div>
       )}
 
-      {!loading && filtered.length === 0 && (
+      {!loading && isOnline && filtered.length === 0 && (
         <div className="text-center py-16 text-gray-400 font-arabic">
           {isAr ? "لا توجد أخبار" : "No news found"}
         </div>

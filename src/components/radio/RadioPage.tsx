@@ -7,6 +7,8 @@ import {
   type RadioStation,
 } from "@/data/radio-stations";
 import { SURAH_NAMES_AR } from "@/lib/surahs";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import OfflineBanner from "@/components/shared/OfflineBanner";
 
 const RESYNC_INTERVAL_MS = 45000;
 
@@ -40,6 +42,7 @@ function CategoryBadge({ category }: { category: RadioStation["category"] }) {
 
 export default function RadioPage({ locale }: { locale: string }) {
   const isAr = locale === "ar";
+  const { isOnline } = useNetworkStatus();
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [currentStation, setCurrentStation] = useState<RadioStation | null>(
     null,
@@ -71,6 +74,35 @@ export default function RadioPage({ locale }: { locale: string }) {
     }
   };
 
+  const stop = () => {
+    clearResync();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = "";
+      audioRef.current.load();
+      audioRef.current = null;
+    }
+    setIsPlaying(false);
+    setIsLoading(false);
+    setCurrentStation(null);
+    setLiveMeta(null);
+    setError("");
+  };
+
+  // If connectivity drops mid-playback, stop cleanly instead of leaving
+  // a stalled/silently-buffering stream and show the Arabic message.
+  useEffect(() => {
+    if (!isOnline && currentStation) {
+      stop();
+      setError(
+        isAr
+          ? "انقطع الاتصال بالإنترنت — تم إيقاف البث"
+          : "Connection lost — playback stopped",
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline]);
+
   useEffect(() => {
     return () => {
       clearResync();
@@ -87,15 +119,9 @@ export default function RadioPage({ locale }: { locale: string }) {
     return res.json();
   };
 
-  // Track (or adhan/recitation mode) changed under us, or we're joining
-  // fresh — (re)point the element at the live-stream endpoint, which
-  // returns audio already trimmed server-side to the current live byte
-  // position. We never seek client-side here: relying on the browser's
-  // `seekable` ranges against the upstream mp3quran.net file was the root
-  // cause of playback restarting from 0 (upstream doesn't reliably honor
-  // Range requests, so seekable never covered the live offset).
   const resyncMosqueLive = async () => {
     if (!audioRef.current || currentStation?.id !== "mosque-live") return;
+    if (!isOnline) return;
     try {
       const state = await fetchLiveState();
       setLiveMeta(state);
@@ -107,16 +133,20 @@ export default function RadioPage({ locale }: { locale: string }) {
         if (isPlayingRef.current) await audio.play().catch(() => {});
         return;
       }
-
-      // Same underlying track still live — the stream itself is already
-      // positioned correctly server-side, so there's no client-side drift
-      // to correct here (unlike the old seek-based approach).
     } catch {
       // try again next tick
     }
   };
 
   const startMosqueLive = async (station: RadioStation) => {
+    if (!isOnline) {
+      setError(
+        isAr
+          ? "لا يوجد اتصال بالإنترنت — البث المباشر يحتاج إلى اتصال"
+          : "No internet connection — live broadcast requires internet",
+      );
+      return;
+    }
     setError("");
     if (audioRef.current) {
       audioRef.current.pause();
@@ -130,9 +160,6 @@ export default function RadioPage({ locale }: { locale: string }) {
     setIsLoading(true);
 
     try {
-      // Still fetched for display metadata (reciter name, surah, mode) —
-      // the actual playback offset is now handled server-side by
-      // /api/radio/live-stream, not by seeking this response's offset.
       const state = await fetchLiveState();
       setLiveMeta(state);
       liveUrlRef.current = state.url;
@@ -155,8 +182,6 @@ export default function RadioPage({ locale }: { locale: string }) {
         setError(isAr ? "تعذّر تشغيل البث المباشر." : "Live broadcast failed.");
       };
 
-      // Cache-bust so every (re)start hits the server fresh and lands on
-      // whatever the live position is *right now*, never a cached response.
       audio.src = `/api/radio/live-stream?t=${Date.now()}`;
       await audio.play().catch(() => {});
 
@@ -175,6 +200,14 @@ export default function RadioPage({ locale }: { locale: string }) {
   };
 
   const playStation = (station: RadioStation) => {
+    if (!isOnline) {
+      setError(
+        isAr
+          ? "لا يوجد اتصال بالإنترنت — الإذاعة تحتاج إلى اتصال"
+          : "No internet connection — radio requires internet",
+      );
+      return;
+    }
     setError("");
 
     if (station.isLive) {
@@ -182,8 +215,6 @@ export default function RadioPage({ locale }: { locale: string }) {
         if (isPlaying) {
           audioRef.current?.pause();
         } else {
-          // Resuming rejoins the live position via a fresh request — it
-          // does not continue from wherever it was paused.
           startMosqueLive(station);
         }
         return;
@@ -265,21 +296,6 @@ export default function RadioPage({ locale }: { locale: string }) {
   const handleVolumeChange = (val: number) => {
     setVolume(val);
     if (audioRef.current) audioRef.current.volume = val;
-  };
-
-  const stop = () => {
-    clearResync();
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = "";
-      audioRef.current.load();
-      audioRef.current = null;
-    }
-    setIsPlaying(false);
-    setIsLoading(false);
-    setCurrentStation(null);
-    setLiveMeta(null);
-    setError("");
   };
 
   const nowPlayingLabel = () => {
@@ -379,6 +395,20 @@ export default function RadioPage({ locale }: { locale: string }) {
       )}
 
       <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
+        <OfflineBanner
+          locale={locale}
+          featureLabel={isAr ? "الإذاعة الإسلامية" : "Islamic Radio"}
+        />
+
+        {!currentStation && error && (
+          <div
+            className="bg-red-50 border border-red-100 rounded-2xl px-4 py-3 text-center font-arabic text-sm text-red-600"
+            dir={isAr ? "rtl" : "ltr"}
+          >
+            {error}
+          </div>
+        )}
+
         <div className="flex gap-2 flex-wrap">
           {CATEGORIES.map((cat) => (
             <button
@@ -403,7 +433,8 @@ export default function RadioPage({ locale }: { locale: string }) {
               <button
                 key={station.id}
                 onClick={() => playStation(station)}
-                className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all text-right ${
+                disabled={!isOnline}
+                className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all text-right disabled:opacity-50 disabled:cursor-not-allowed ${
                   isActive
                     ? "border-primary bg-primary/5 shadow-md"
                     : "border-gray-100 bg-white hover:border-primary/30 hover:shadow-sm"

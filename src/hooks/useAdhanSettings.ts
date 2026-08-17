@@ -11,26 +11,6 @@ import {
   type AdhanVoiceId,
 } from "@/lib/capacitor-adhan";
 
-/**
- * Single source of truth for Adhan settings UI state — voice selection,
- * preview playback, enable/disable toggle. Extracted so both
- * AdhanSettingsButton (existing navbar popup) and the Notifications page
- * consume the exact same logic instead of maintaining two separate
- * copies of preview-audio handling, which would make the reported Adhan
- * bug harder to track down across two divergent implementations.
- *
- * This hook does NOT change how settings are persisted or how alarms are
- * scheduled — it only consolidates the UI-facing state management that
- * previously lived inline inside AdhanSettingsButton. All actual
- * persistence/scheduling still goes through the existing functions in
- * capacitor-adhan.ts, untouched by this refactor.
- *
- * Preview playback still uses the same archive.org-hosted preview clips
- * (PREVIEW_BASE) as the original component — that wasn't moved into
- * capacitor-adhan.ts since it's a UI-preview concern, not part of the
- * actual notification-scheduling engine.
- */
-
 const PREVIEW_BASE = "https://archive.org/download/adhan_202607";
 
 export type PreviewVariant = "regular" | "fajr";
@@ -71,6 +51,18 @@ export function useAdhanSettings() {
         return;
       }
 
+      // Preview clips are streamed from archive.org — genuinely
+      // online-only. A clear Arabic message beats a silent hang or a
+      // confusing generic "check the URL" alert while offline.
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        alert(
+          isAr
+            ? "معاينة الصوت تحتاج إلى اتصال بالإنترنت"
+            : "Audio preview requires an internet connection",
+        );
+        return;
+      }
+
       audioRef.current?.pause();
 
       const voice = ADHAN_VOICES.find((v) => v.id === voiceId)!;
@@ -81,8 +73,8 @@ export function useAdhanSettings() {
         setPreviewingKey(null);
         alert(
           isAr
-            ? "تعذّر تشغيل المعاينة — تحقق من الرابط"
-            : "Preview failed to load — check the URL",
+            ? "تعذّر تشغيل المعاينة — تحقق من الاتصال بالإنترنت"
+            : "Preview failed to load — check your internet connection",
         );
       };
       audioRef.current = audio;

@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { COLLECTIONS, type Hadith } from "@/lib/hadith";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import OfflineBanner from "@/components/shared/OfflineBanner";
 import HadithReader from "./HadithReader";
 
 interface Props {
@@ -18,6 +20,7 @@ interface GlobalResult {
 
 export default function HadithBrowser({ locale, dailyHadith }: Props) {
   const isAr = locale === "ar";
+  const { isOnline } = useNetworkStatus();
   const [view, setView] = useState<View>("home");
   const [selectedCollection, setSelectedCollection] = useState("");
   const [globalSearch, setGlobalSearch] = useState("");
@@ -25,7 +28,7 @@ export default function HadithBrowser({ locale, dailyHadith }: Props) {
   const [globalSearching, setGlobalSearching] = useState(false);
 
   const handleGlobalSearch = async () => {
-    if (!globalSearch.trim()) return;
+    if (!globalSearch.trim() || !isOnline) return;
     setGlobalSearching(true);
     setGlobalResults([]);
     const results = await Promise.all(
@@ -75,7 +78,6 @@ export default function HadithBrowser({ locale, dailyHadith }: Props) {
 
   return (
     <main className="min-h-screen bg-surface">
-      {/* Header */}
       <div className="bg-gradient-to-br from-[#0D3D28] to-[#1B6B4A] py-12 px-4 text-center text-white">
         <p className="font-arabic text-[#C9A84C] text-lg mb-2">
           وَمَا آتَاكُمُ الرَّسُولُ فَخُذُوهُ
@@ -89,7 +91,16 @@ export default function HadithBrowser({ locale, dailyHadith }: Props) {
       </div>
 
       <div className="max-w-3xl mx-auto px-4 py-8 space-y-8">
-        {/* Global search */}
+        <OfflineBanner
+          locale={locale}
+          featureLabel={
+            isAr ? "البحث في جميع كتب الحديث" : "Searching all hadith books"
+          }
+        />
+
+        {/* Global search — disabled while offline since it requires
+           fetching every collection fresh (collections not yet opened
+           this session aren't cached). */}
         <div>
           <div className="flex items-center gap-2 mb-4">
             <div className="w-1 h-6 bg-primary rounded-full" />
@@ -108,12 +119,13 @@ export default function HadithBrowser({ locale, dailyHadith }: Props) {
                   ? "ابحث في جميع كتب الحديث..."
                   : "Search across all hadith books..."
               }
-              className="flex-1 bg-white border border-gray-200 rounded-xl px-5 py-3 font-arabic text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-right shadow-sm"
+              disabled={!isOnline}
+              className="flex-1 bg-white border border-gray-200 rounded-xl px-5 py-3 font-arabic text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-right shadow-sm disabled:opacity-50"
               dir="rtl"
             />
             <button
               onClick={handleGlobalSearch}
-              disabled={globalSearching || !globalSearch.trim()}
+              disabled={globalSearching || !globalSearch.trim() || !isOnline}
               className="bg-primary text-white px-5 py-3 rounded-xl font-arabic text-sm hover:bg-primary/90 transition-colors disabled:opacity-50 whitespace-nowrap"
             >
               {globalSearching ? "⏳" : isAr ? "🔍 بحث" : "🔍 Search"}
@@ -190,7 +202,10 @@ export default function HadithBrowser({ locale, dailyHadith }: Props) {
           )}
         </div>
 
-        {/* Daily Hadith */}
+        {/* Daily Hadith — server-rendered on page load, so it's already
+           bundled into the HTML and needs no client fetch; works offline
+           as long as the page itself has been visited before (cached by
+           the service worker — see sw.js). */}
         {dailyHadith && dailyHadith.textAr && (
           <div>
             <div className="flex items-center gap-2 mb-4">
@@ -222,7 +237,8 @@ export default function HadithBrowser({ locale, dailyHadith }: Props) {
           </div>
         )}
 
-        {/* Collections grid */}
+        {/* Collections grid — always shown; tapping into one that isn't
+           cached yet is handled by HadithReader's own offline state. */}
         <div>
           <div className="flex items-center gap-2 mb-4">
             <div className="w-1 h-6 bg-primary rounded-full" />

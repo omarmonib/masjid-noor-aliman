@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef} from "react";
+import { useState, useEffect, useRef } from "react";
 import { COLLECTIONS, type Hadith } from "@/lib/hadith";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import OfflineBanner from "@/components/shared/OfflineBanner";
 import HadithCard from "./HadithCard";
 
 interface Props {
@@ -13,7 +15,9 @@ interface Props {
 
 const PAGE_SIZE = 15;
 
-// Cache full collections in memory across renders
+// Cache full collections in memory across renders — also doubles as an
+// offline cache: once a collection has been fetched successfully, it
+// stays available for the rest of the session even if connectivity drops.
 const collectionCache: Record<string, Hadith[]> = {};
 
 export default function HadithReader({
@@ -24,6 +28,7 @@ export default function HadithReader({
 }: Props) {
   const isAr = locale === "ar";
   const col = COLLECTIONS.find((c) => c.id === collection)!;
+  const { isOnline, isResolved } = useNetworkStatus();
 
   const [allHadiths, setAllHadiths] = useState<Hadith[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,7 +41,8 @@ export default function HadithReader({
   const [highlightId, setHighlightId] = useState<number | null>(null);
   const highlightRef = useRef<HTMLDivElement | null>(null);
 
-  // Load full collection once
+  // Load full collection once (from cache if already available, which
+  // works regardless of current connectivity).
   useEffect(() => {
     setLoading(true);
     setError("");
@@ -51,6 +57,14 @@ export default function HadithReader({
       setLoading(false);
       return;
     }
+
+    // Nothing cached and we're offline — don't fire a doomed fetch,
+    // show the offline state immediately instead.
+    if (isResolved && !isOnline) {
+      setLoading(false);
+      return;
+    }
+    if (!isResolved) return;
 
     fetch(`/api/hadith?collection=${collection}`)
       .then((r) => r.json())
@@ -75,7 +89,7 @@ export default function HadithReader({
         setError(String(e));
         setLoading(false);
       });
-  }, [collection]);
+  }, [collection, isResolved, isOnline]);
 
   // Scroll to highlighted hadith
   useEffect(() => {
@@ -116,7 +130,6 @@ export default function HadithReader({
     setJumpTo("");
     setActiveSearch("");
     setSearchQuery("");
-    // Find this hadith in allHadiths
     const idx = allHadiths.findIndex((h) => h.hadithNumber === n);
     if (idx === -1) return;
     const targetPage = Math.floor(idx / PAGE_SIZE) + 1;
@@ -130,6 +143,8 @@ export default function HadithReader({
     setHighlightId(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  const noDataOffline = !loading && !error && allHadiths.length === 0 && !isOnline;
 
   return (
     <main className="min-h-screen bg-surface">
@@ -180,7 +195,6 @@ export default function HadithReader({
           </div>
         </div>
 
-        {/* Clickable title → reset to page 1 */}
         <div className="text-center">
           <button onClick={resetToStart} className="group">
             <h1 className="font-arabic text-3xl font-bold mb-1 group-hover:text-[#C9A84C] transition-colors">
@@ -198,65 +212,70 @@ export default function HadithReader({
       </div>
 
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
-        {/* Controls */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-3">
-          {/* Search */}
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-              placeholder={
-                isAr ? "ابحث بكلمة في الحديث..." : "Search by keyword..."
-              }
-              className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 font-arabic text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-right"
-              dir="rtl"
-              disabled={loading}
-            />
-            <button
-              onClick={handleSearch}
-              disabled={loading || !searchQuery.trim()}
-              className="bg-primary text-white px-4 py-2.5 rounded-xl font-arabic text-sm hover:bg-primary/90 transition-colors disabled:opacity-40"
-            >
-              {isAr ? "🔍 بحث" : "🔍 Search"}
-            </button>
-            {activeSearch && (
+        <OfflineBanner
+          locale={locale}
+          featureLabel={isAr ? "كتب الحديث" : "Hadith collections"}
+        />
+
+        {!noDataOffline && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-3">
+            {/* Search */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                placeholder={
+                  isAr ? "ابحث بكلمة في الحديث..." : "Search by keyword..."
+                }
+                className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 font-arabic text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-right"
+                dir="rtl"
+                disabled={loading}
+              />
               <button
-                onClick={clearSearch}
-                className="bg-gray-100 text-gray-600 px-3 py-2.5 rounded-xl text-sm hover:bg-gray-200 transition-colors"
+                onClick={handleSearch}
+                disabled={loading || !searchQuery.trim()}
+                className="bg-primary text-white px-4 py-2.5 rounded-xl font-arabic text-sm hover:bg-primary/90 transition-colors disabled:opacity-40"
               >
-                ✕
+                {isAr ? "🔍 بحث" : "🔍 Search"}
               </button>
-            )}
-          </div>
+              {activeSearch && (
+                <button
+                  onClick={clearSearch}
+                  className="bg-gray-100 text-gray-600 px-3 py-2.5 rounded-xl text-sm hover:bg-gray-200 transition-colors"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
 
-          {/* Jump */}
-          <div className="flex gap-2">
-            <input
-              type="number"
-              min={1}
-              value={jumpTo}
-              onChange={(e) => setJumpTo(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleJump()}
-              placeholder={
-                isAr ? "اذهب إلى حديث رقم..." : "Jump to hadith #..."
-              }
-              className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 font-arabic text-sm focus:outline-none focus:ring-2 focus:ring-[#C9A84C]/30 focus:border-[#C9A84C] text-right"
-              dir="rtl"
-              disabled={loading}
-            />
-            <button
-              onClick={handleJump}
-              disabled={loading || !jumpTo}
-              className="bg-[#C9A84C] text-white px-4 py-2.5 rounded-xl font-arabic text-sm hover:bg-[#C9A84C]/90 transition-colors disabled:opacity-40"
-            >
-              {isAr ? "اذهب" : "Go"}
-            </button>
+            {/* Jump */}
+            <div className="flex gap-2">
+              <input
+                type="number"
+                min={1}
+                value={jumpTo}
+                onChange={(e) => setJumpTo(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleJump()}
+                placeholder={
+                  isAr ? "اذهب إلى حديث رقم..." : "Jump to hadith #..."
+                }
+                className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 font-arabic text-sm focus:outline-none focus:ring-2 focus:ring-[#C9A84C]/30 focus:border-[#C9A84C] text-right"
+                dir="rtl"
+                disabled={loading}
+              />
+              <button
+                onClick={handleJump}
+                disabled={loading || !jumpTo}
+                className="bg-[#C9A84C] text-white px-4 py-2.5 rounded-xl font-arabic text-sm hover:bg-[#C9A84C]/90 transition-colors disabled:opacity-40"
+              >
+                {isAr ? "اذهب" : "Go"}
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Search result count */}
         {activeSearch && !loading && (
           <div
             className={`text-center font-arabic text-sm py-2 px-4 rounded-xl border ${
@@ -273,7 +292,6 @@ export default function HadithReader({
           </div>
         )}
 
-        {/* Loading state */}
         {loading && (
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
@@ -290,7 +308,16 @@ export default function HadithReader({
           </div>
         )}
 
-        {/* Error */}
+        {noDataOffline && (
+          <div className="bg-white border border-gray-100 rounded-2xl p-8 text-center">
+            <p className="font-arabic text-gray-500">
+              {isAr
+                ? "هذا الكتاب لم يُحمَّل بعد ويحتاج إلى اتصال بالإنترنت في أول مرة."
+                : "This book hasn't been downloaded yet and needs internet the first time."}
+            </p>
+          </div>
+        )}
+
         {error && (
           <div className="bg-red-50 border border-red-100 rounded-2xl p-6 text-center">
             <p className="font-arabic text-red-500 mb-3">
@@ -305,7 +332,6 @@ export default function HadithReader({
           </div>
         )}
 
-        {/* Hadiths */}
         {!loading &&
           !error &&
           pageHadiths.map((h) => (
@@ -323,14 +349,12 @@ export default function HadithReader({
             </div>
           ))}
 
-        {/* Empty search */}
         {!loading && !error && activeSearch && filtered.length === 0 && (
           <div className="text-center py-16 text-gray-400 font-arabic">
             {isAr ? "لا توجد نتائج" : "No results"}
           </div>
         )}
 
-        {/* Pagination */}
         {!loading && !error && totalPages > 1 && (
           <div className="flex items-center justify-between pt-2 gap-3">
             <button

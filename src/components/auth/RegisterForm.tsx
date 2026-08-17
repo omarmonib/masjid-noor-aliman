@@ -3,10 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import OfflineBanner from "@/components/shared/OfflineBanner";
 
 export default function RegisterForm({ locale }: { locale: string }) {
   const isAr = locale === "ar";
   const router = useRouter();
+  const { isOnline } = useNetworkStatus();
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -18,6 +21,7 @@ export default function RegisterForm({ locale }: { locale: string }) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isOnline) return;
     setError("");
 
     if (password !== confirm) {
@@ -91,113 +95,124 @@ export default function RegisterForm({ locale }: { locale: string }) {
           </p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Name */}
-            <div>
-              <label className="block font-arabic text-sm font-medium text-gray-700 mb-2 text-right">
-                {isAr ? "الاسم الكامل" : "Full Name"}
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                dir="rtl"
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 font-arabic text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
-                placeholder={isAr ? "أدخل اسمك الكامل" : "Enter your full name"}
-              />
-            </div>
+        <div className="mb-4">
+          <OfflineBanner
+            locale={locale}
+            featureLabel={isAr ? "إنشاء حساب" : "Account creation"}
+          />
+        </div>
 
-            {/* Email */}
-            <div>
-              <label className="block font-arabic text-sm font-medium text-gray-700 mb-2 text-right">
-                {isAr ? "البريد الإلكتروني" : "Email"}
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                dir="ltr"
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
-                placeholder="email@example.com"
-              />
-            </div>
+        <fieldset disabled={!isOnline} className="border-0 p-0 m-0">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Name */}
+              <div>
+                <label className="block font-arabic text-sm font-medium text-gray-700 mb-2 text-right">
+                  {isAr ? "الاسم الكامل" : "Full Name"}
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  dir="rtl"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 font-arabic text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors disabled:bg-gray-50"
+                  placeholder={
+                    isAr ? "أدخل اسمك الكامل" : "Enter your full name"
+                  }
+                />
+              </div>
 
-            {/* Password */}
-            <div>
-              <label className="block font-arabic text-sm font-medium text-gray-700 mb-2 text-right">
-                {isAr ? "كلمة المرور" : "Password"}
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                dir="ltr"
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
-                placeholder="••••••••"
-              />
-              <p className="font-arabic text-xs text-gray-400 mt-1 text-right">
-                {isAr ? "٨ أحرف على الأقل" : "At least 8 characters"}
+              {/* Email */}
+              <div>
+                <label className="block font-arabic text-sm font-medium text-gray-700 mb-2 text-right">
+                  {isAr ? "البريد الإلكتروني" : "Email"}
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  dir="ltr"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors disabled:bg-gray-50"
+                  placeholder="email@example.com"
+                />
+              </div>
+
+              {/* Password */}
+              <div>
+                <label className="block font-arabic text-sm font-medium text-gray-700 mb-2 text-right">
+                  {isAr ? "كلمة المرور" : "Password"}
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  dir="ltr"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors disabled:bg-gray-50"
+                  placeholder="••••••••"
+                />
+                <p className="font-arabic text-xs text-gray-400 mt-1 text-right">
+                  {isAr ? "٨ أحرف على الأقل" : "At least 8 characters"}
+                </p>
+              </div>
+
+              {/* Confirm */}
+              <div>
+                <label className="block font-arabic text-sm font-medium text-gray-700 mb-2 text-right">
+                  {isAr ? "تأكيد كلمة المرور" : "Confirm Password"}
+                </label>
+                <input
+                  type="password"
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  required
+                  dir="ltr"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors disabled:bg-gray-50"
+                  placeholder="••••••••"
+                />
+              </div>
+
+              {/* Error */}
+              {error && (
+                <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3 text-center">
+                  <p className="font-arabic text-red-600 text-sm">{error}</p>
+                </div>
+              )}
+
+              {/* Submit */}
+              <button
+                type="submit"
+                disabled={loading || !isOnline}
+                className="w-full py-3 rounded-xl font-arabic text-white font-bold transition-all disabled:opacity-50"
+                style={{
+                  background: "linear-gradient(to right, #0D3D28, #1B6B4A)",
+                }}
+              >
+                {loading
+                  ? isAr
+                    ? "جارٍ الإنشاء..."
+                    : "Creating account..."
+                  : isAr
+                    ? "إنشاء الحساب"
+                    : "Create Account"}
+              </button>
+            </form>
+
+            <div className="mt-6 text-center">
+              <p className="font-arabic text-sm text-gray-500">
+                {isAr ? "لديك حساب بالفعل؟" : "Already have an account?"}{" "}
+                <Link
+                  href={`/${locale}/auth/login`}
+                  className="text-primary font-bold hover:underline"
+                >
+                  {isAr ? "تسجيل الدخول" : "Sign In"}
+                </Link>
               </p>
             </div>
-
-            {/* Confirm */}
-            <div>
-              <label className="block font-arabic text-sm font-medium text-gray-700 mb-2 text-right">
-                {isAr ? "تأكيد كلمة المرور" : "Confirm Password"}
-              </label>
-              <input
-                type="password"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                required
-                dir="ltr"
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
-                placeholder="••••••••"
-              />
-            </div>
-
-            {/* Error */}
-            {error && (
-              <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3 text-center">
-                <p className="font-arabic text-red-600 text-sm">{error}</p>
-              </div>
-            )}
-
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 rounded-xl font-arabic text-white font-bold transition-all disabled:opacity-50"
-              style={{
-                background: "linear-gradient(to right, #0D3D28, #1B6B4A)",
-              }}
-            >
-              {loading
-                ? isAr
-                  ? "جارٍ الإنشاء..."
-                  : "Creating account..."
-                : isAr
-                  ? "إنشاء الحساب"
-                  : "Create Account"}
-            </button>
-          </form>
-
-          <div className="mt-6 text-center">
-            <p className="font-arabic text-sm text-gray-500">
-              {isAr ? "لديك حساب بالفعل؟" : "Already have an account?"}{" "}
-              <Link
-                href={`/${locale}/auth/login`}
-                className="text-primary font-bold hover:underline"
-              >
-                {isAr ? "تسجيل الدخول" : "Sign In"}
-              </Link>
-            </p>
           </div>
-        </div>
+        </fieldset>
 
         <div className="text-center mt-4">
           <Link

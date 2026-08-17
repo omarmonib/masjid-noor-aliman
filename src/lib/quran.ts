@@ -1,9 +1,10 @@
 import { normalizeArabic } from "./quran-search";
+import { getCairoDayOfYear } from "./date";
 
-interface YaAyyuhaVerse {
-  key: string; // "surah:ayah"
-  ayahNumber: number; // global 1-6236, used by alquran.cloud's /ayah endpoint
-}
+ interface YaAyyuhaVerse {
+   key: string; // "surah:ayah"
+   ayahNumber: number; // global 1-6236, used by alquran.cloud's /ayah endpoint
+ }
 
 let yaAyyuhaCache: YaAyyuhaVerse[] | null = null;
 
@@ -145,24 +146,6 @@ async function getYaAyyuhaVerses(): Promise<YaAyyuhaVerse[]> {
 
   yaAyyuhaCache = verses;
   return verses;
-}
-
-// Egypt does not currently observe DST — fixed UTC+2 offset, same approach
-// as prayer-schedule.ts. Using a fixed local date (rather than server UTC
-// date) means the verse flips at local midnight rather than at a time that
-// could be several hours off from the audience's actual day boundary.
-const CAIRO_OFFSET_HOURS = 2;
-
-function getCairoDayOfYear(): number {
-  const now = new Date();
-  const shifted = new Date(now.getTime() + CAIRO_OFFSET_HOURS * 3600 * 1000);
-  const startOfYear = Date.UTC(shifted.getUTCFullYear(), 0, 1);
-  const today = Date.UTC(
-    shifted.getUTCFullYear(),
-    shifted.getUTCMonth(),
-    shifted.getUTCDate(),
-  );
-  return Math.floor((today - startOfYear) / 86400000);
 }
 
 export async function getDailyVerse() {

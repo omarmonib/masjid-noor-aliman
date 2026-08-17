@@ -10,6 +10,8 @@ import {
   type MediaItem,
   type SpeakerGroup,
 } from "@/lib/media";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import OfflineBanner from "@/components/shared/OfflineBanner";
 
 const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
@@ -17,6 +19,7 @@ export default function MediaLibrary({ locale }: { locale: string }) {
   const isAr = locale === "ar";
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { isOnline, isResolved } = useNetworkStatus();
 
   const [items, setItems] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,14 +40,21 @@ export default function MediaLibrary({ locale }: { locale: string }) {
   const [volume, setVolume] = useState(1);
   const [prevVolume, setPrevVolume] = useState(1);
   const [playbackRate, setPlaybackRate] = useState(1);
+  const [playError, setPlayError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
+    if (!isResolved) return;
+    if (!isOnline) {
+      setLoading(false);
+      return;
+    }
     fetch("/api/media")
       .then((r) => r.json())
       .then((data) => setItems(Array.isArray(data) ? data : []))
+      .catch(() => setItems([]))
       .finally(() => setLoading(false));
-  }, []);
+  }, [isResolved, isOnline]);
 
   useEffect(() => {
     return () => {
@@ -68,6 +78,16 @@ export default function MediaLibrary({ locale }: { locale: string }) {
   );
 
   const playItem = (item: MediaItem) => {
+    if (!isOnline) {
+      setPlayError(
+        isAr
+          ? "الاستماع يحتاج إلى اتصال بالإنترنت"
+          : "Playback requires an internet connection",
+      );
+      return;
+    }
+    setPlayError(null);
+
     if (playingId === item.id) {
       if (isPlaying) {
         audioRef.current?.pause();
@@ -104,6 +124,14 @@ export default function MediaLibrary({ locale }: { locale: string }) {
       setCurrentTime(audio.currentTime);
       setProgress(
         audio.duration ? (audio.currentTime / audio.duration) * 100 : 0,
+      );
+    };
+    audio.onerror = () => {
+      setIsPlaying(false);
+      setPlayError(
+        isAr
+          ? "تعذّر تشغيل هذا التسجيل — تحقق من الاتصال"
+          : "Couldn't play this recording — check your connection",
       );
     };
 
@@ -168,7 +196,7 @@ export default function MediaLibrary({ locale }: { locale: string }) {
         <div className="flex items-center gap-4 p-5 sm:p-6">
           <button
             onClick={() => playItem(item)}
-            className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center flex-shrink-0 transition-all hover:scale-105 active:scale-95 shadow-md"
+            className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center flex-shrink-0 transition-all hover:scale-105 active:scale-95 shadow-md disabled:opacity-50"
             style={{
               background: active
                 ? "linear-gradient(135deg, #C9A84C, #E8C56A)"
@@ -316,7 +344,6 @@ export default function MediaLibrary({ locale }: { locale: string }) {
       </div>
 
       <div className="max-w-3xl mx-auto px-4 -mt-7 relative z-20">
-        {/* Section switcher */}
         <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-1.5 flex gap-1.5">
           {MEDIA_TYPES.map((t) => (
             <button
@@ -342,7 +369,21 @@ export default function MediaLibrary({ locale }: { locale: string }) {
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto px-4 py-8">
+      <div className="max-w-3xl mx-auto px-4 py-8 space-y-4">
+        <OfflineBanner
+          locale={locale}
+          featureLabel={isAr ? "الخطب والتسجيلات" : "Sermons & recordings"}
+        />
+
+        {playError && (
+          <div
+            className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-center font-arabic text-sm text-amber-800"
+            dir={isAr ? "rtl" : "ltr"}
+          >
+            {playError}
+          </div>
+        )}
+
         {loading && (
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
@@ -354,7 +395,7 @@ export default function MediaLibrary({ locale }: { locale: string }) {
           </div>
         )}
 
-        {!loading && groups.length === 0 && (
+        {!loading && isOnline && groups.length === 0 && (
           <div className="text-center py-20">
             <div className="text-5xl mb-4 opacity-40">{activeMeta?.icon}</div>
             <p className="font-arabic text-gray-400">
@@ -365,8 +406,7 @@ export default function MediaLibrary({ locale }: { locale: string }) {
           </div>
         )}
 
-        {/* Speaker profile squares */}
-        {!loading && groups.length > 0 && (
+        {!loading && isOnline && groups.length > 0 && (
           <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
             {groups.map((group) => (
               <button
@@ -407,7 +447,6 @@ export default function MediaLibrary({ locale }: { locale: string }) {
           : "All recordings are audio-only and free"}
       </p>
 
-      {/* Speaker modal */}
       {activeGroup && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex flex-col">
           <div

@@ -2,19 +2,28 @@
 
 import { useState, useEffect } from "react";
 import { EVENT_CATEGORIES, type EventItem } from "@/lib/mosque-content";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import OfflineBanner from "@/components/shared/OfflineBanner";
 
 export default function EventsSection({ locale }: { locale: string }) {
   const isAr = locale === "ar";
+  const { isOnline, isResolved } = useNetworkStatus();
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
 
   useEffect(() => {
+    if (!isResolved) return;
+    if (!isOnline) {
+      setLoading(false);
+      return;
+    }
     fetch("/api/events")
       .then((r) => r.json())
       .then((data) => setEvents(Array.isArray(data) ? data : []))
+      .catch(() => setEvents([]))
       .finally(() => setLoading(false));
-  }, []);
+  }, [isResolved, isOnline]);
 
   const filtered =
     filter === "all" ? events : events.filter((e) => e.category === filter);
@@ -86,36 +95,43 @@ export default function EventsSection({ locale }: { locale: string }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-2 flex-wrap">
-        {["all", ...EVENT_CATEGORIES.map((c) => c.id)].map((cat) => {
-          const meta = EVENT_CATEGORIES.find((c) => c.id === cat);
-          return (
-            <button
-              key={cat}
-              onClick={() => setFilter(cat)}
-              className={`px-3 py-1.5 rounded-full font-arabic text-sm transition-all ${
-                filter === cat
-                  ? "bg-primary text-white"
-                  : "bg-white border border-gray-200 text-gray-600 hover:border-primary/40"
-              }`}
-            >
-              {cat === "all"
-                ? isAr
-                  ? "الكل"
-                  : "All"
-                : `${meta?.icon} ${isAr ? meta?.labelAr : meta?.labelEn}`}
-            </button>
-          );
-        })}
-      </div>
+      <OfflineBanner
+        locale={locale}
+        featureLabel={isAr ? "الفعاليات" : "Events"}
+      />
 
-      {loading && (
+      {isOnline && (
+        <div className="flex gap-2 flex-wrap">
+          {["all", ...EVENT_CATEGORIES.map((c) => c.id)].map((cat) => {
+            const meta = EVENT_CATEGORIES.find((c) => c.id === cat);
+            return (
+              <button
+                key={cat}
+                onClick={() => setFilter(cat)}
+                className={`px-3 py-1.5 rounded-full font-arabic text-sm transition-all ${
+                  filter === cat
+                    ? "bg-primary text-white"
+                    : "bg-white border border-gray-200 text-gray-600 hover:border-primary/40"
+                }`}
+              >
+                {cat === "all"
+                  ? isAr
+                    ? "الكل"
+                    : "All"
+                  : `${meta?.icon} ${isAr ? meta?.labelAr : meta?.labelEn}`}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {loading && isOnline && (
         <div className="text-center py-16 text-gray-400 font-arabic">
           {isAr ? "جارٍ التحميل..." : "Loading..."}
         </div>
       )}
 
-      {!loading && upcoming.length > 0 && (
+      {!loading && isOnline && upcoming.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-4">
             <div className="w-1 h-6 bg-primary rounded-full" />
@@ -129,7 +145,7 @@ export default function EventsSection({ locale }: { locale: string }) {
         </div>
       )}
 
-      {!loading && past.length > 0 && (
+      {!loading && isOnline && past.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-4">
             <div className="w-1 h-6 bg-gray-300 rounded-full" />
@@ -143,7 +159,7 @@ export default function EventsSection({ locale }: { locale: string }) {
         </div>
       )}
 
-      {!loading && filtered.length === 0 && (
+      {!loading && isOnline && filtered.length === 0 && (
         <div className="text-center py-16 text-gray-400 font-arabic">
           {isAr ? "لا توجد فعاليات" : "No events found"}
         </div>

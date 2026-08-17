@@ -1,3 +1,5 @@
+import { getCairoDayOfYear } from "./date";
+
 export interface HadithCollection {
   id: string;
   nameAr: string;
@@ -96,12 +98,9 @@ export const COLLECTIONS: HadithCollection[] = [
 ];
 
 export async function getDailyHadithData(): Promise<Hadith | null> {
-  const dayOfYear = Math.floor(
-    (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) /
-      86400000,
-  );
-  const number = (dayOfYear % 42) + 1;
-  try {
+  const dayOfYear = getCairoDayOfYear();
+   const number = (dayOfYear % 42) + 1;
+   try {
     const base =
       "https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions";
     const res = await fetch(`${base}/ara-nawawi/${number}.json`, {

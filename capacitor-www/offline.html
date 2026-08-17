@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>لا يوجد اتصال بالإنترنت</title>
+<style>
+  :root {
+    --primary-dark: #0D3D28;
+    --primary: #1B6B4A;
+    --gold: #C9A84C;
+    --surface: #FAF6F0;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    /* System Arabic-capable fonts only — no network fonts allowed here */
+    font-family: -apple-system, "Segoe UI", Tahoma, Arial, sans-serif;
+    background: var(--surface);
+    color: #1A1A1A;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: 32px 24px;
+    padding-top: calc(32px + env(safe-area-inset-top));
+    padding-bottom: calc(32px + env(safe-area-inset-bottom));
+    text-align: center;
+  }
+
+  .icon-wrap {
+    width: 88px;
+    height: 88px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 24px;
+    box-shadow: 0 8px 24px rgba(13, 61, 40, 0.25);
+  }
+
+  .icon-wrap svg { width: 40px; height: 40px; }
+
+  h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1A1A1A;
+    margin-bottom: 10px;
+  }
+
+  p.desc {
+    font-size: 14px;
+    color: #6B7280;
+    line-height: 1.8;
+    max-width: 320px;
+    margin-bottom: 28px;
+  }
+
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #FEF2F2;
+    color: #B91C1C;
+    border: 1px solid #FECACA;
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 28px;
+    transition: all 0.25s ease;
+  }
+
+  .status-pill.checking {
+    background: #FFFBEB;
+    color: #92400E;
+    border-color: #FDE68A;
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+  }
+
+  .status-pill.checking .dot {
+    animation: pulse 1s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  button#retryBtn {
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    color: white;
+    background: linear-gradient(to right, var(--primary-dark), var(--primary));
+    border: none;
+    border-radius: 14px;
+    padding: 14px 40px;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(27, 107, 74, 0.3);
+    transition: transform 0.15s ease, opacity 0.15s ease;
+  }
+
+  button#retryBtn:active { transform: scale(0.96); }
+  button#retryBtn:disabled { opacity: 0.6; cursor: default; }
+
+  .available-list {
+    margin-top: 36px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(0,0,0,0.06);
+    width: 100%;
+    max-width: 320px;
+  }
+
+  .available-list p.label {
+    font-size: 12px;
+    color: #9CA3AF;
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+
+  .chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+  }
+
+  .chip {
+    font-size: 12px;
+    color: var(--primary);
+    background: rgba(27, 107, 74, 0.08);
+    border: 1px solid rgba(27, 107, 74, 0.15);
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-weight: 600;
+  }
+
+  .brand {
+    position: fixed;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    font-size: 12px;
+    color: #B0B0B0;
+  }
+</style>
+</head>
+<body>
+
+  <div class="icon-wrap">
+    <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9z" opacity="0.35"/>
+      <path d="M5 13l2 2a8 8 0 0111 0l2-2C15.14 8.14 8.87 8.14 5 13z" opacity="0.6"/>
+      <path d="M9 17l2 2a3.5 3.5 0 015 0l2-2a6.5 6.5 0 00-9 0z" opacity="0.9"/>
+      <line x1="2" y1="2" x2="22" y2="22"/>
+    </svg>
+  </div>
+
+  <h1>لا يوجد اتصال بالإنترنت</h1>
+  <p class="desc">
+    يتعذّر الاتصال حالياً بخوادم التطبيق. يمكنك الاستمرار في استخدام
+    القرآن الكريم والأذكار ومواقيت الصلاة والأذان دون الحاجة إلى إنترنت،
+    وسيُعاد الاتصال تلقائياً بمجرد توفره.
+  </p>
+
+  <div class="status-pill checking" id="statusPill">
+    <span class="dot"></span>
+    <span id="statusText">جارٍ التحقق من الاتصال...</span>
+  </div>
+
+  <button id="retryBtn">إعادة المحاولة الآن</button>
+
+  <div class="available-list">
+    <p class="label">متاح بدون إنترنت</p>
+    <div class="chip-row">
+      <span class="chip">📖 القرآن الكريم</span>
+      <span class="chip">📿 الأذكار</span>
+      <span class="chip">🕐 مواقيت الصلاة</span>
+      <span class="chip">🔊 الأذان</span>
+    </div>
+  </div>
+
+  <div class="brand">مسجد نور الإيمان</div>
+
+<script>
+(function () {
+  // Kept in sync with capacitor.config.ts's server.url — this is the
+  // real app entry point we're trying to get back to.
+  var APP_URL = "https://masjid-noor-aliman.vercel.app/";
+
+  var statusPill = document.getElementById("statusPill");
+  var statusText = document.getElementById("statusText");
+  var retryBtn = document.getElementById("retryBtn");
+
+  var pollTimer = null;
+  var pollIntervalMs = 3000;
+  var checking = false;
+
+  function setChecking(isChecking) {
+    checking = isChecking;
+    statusPill.classList.toggle("checking", isChecking);
+    retryBtn.disabled = isChecking;
+  }
+
+  function setOfflineState() {
+    statusPill.classList.add("checking");
+    statusText.textContent = "لا يوجد اتصال — سيُعاد الاتصال تلقائياً";
+  }
+
+  // A HEAD/no-cors ping is more reliable than navigator.onLine alone,
+  // which only reflects whether a network interface is up (e.g. a wifi
+  // connection with no real internet route still reports onLine=true).
+  function pingServer(callback) {
+    if (typeof fetch !== "function") {
+      callback(navigator.onLine);
+      return;
+    }
+    var controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+    var timeoutId = controller ? setTimeout(function () { controller.abort(); }, 4000) : null;
+
+    fetch(APP_URL, {
+      method: "HEAD",
+      mode: "no-cors",
+      cache: "no-store",
+      signal: controller ? controller.signal : undefined
+    })
+      .then(function () {
+        if (timeoutId) clearTimeout(timeoutId);
+        callback(true);
+      })
+      .catch(function () {
+        if (timeoutId) clearTimeout(timeoutId);
+        callback(false);
+      });
+  }
+
+  function attemptReconnect(manual) {
+    if (checking && !manual) return;
+    setChecking(true);
+    statusText.textContent = "جارٍ التحقق من الاتصال...";
+
+    pingServer(function (isOnline) {
+      if (isOnline) {
+        statusText.textContent = "تم الاتصال — جارٍ التحميل...";
+        // Small delay so the "connected" state is visible before the
+        // navigation away from this page happens.
+        setTimeout(function () {
+          window.location.href = APP_URL;
+        }, 400);
+      } else {
+        setOfflineState();
+        setChecking(false);
+      }
+    });
+  }
+
+  retryBtn.addEventListener("click", function () {
+    attemptReconnect(true);
+  });
+
+  // Auto-poll in the background so the app reconnects the moment
+  // connectivity returns, without requiring the user to tap anything —
+  // covers scenario 4 (internet comes back automatically).
+  function startPolling() {
+    if (pollTimer) return;
+    pollTimer = setInterval(function () {
+      attemptReconnect(false);
+    }, pollIntervalMs);
+  }
+
+  // Native browser events fire immediately on connectivity change,
+  // which is faster than waiting for the next poll tick.
+  window.addEventListener("online", function () {
+    attemptReconnect(true);
+  });
+  window.addEventListener("offline", setOfflineState);
+
+  setOfflineState();
+  startPolling();
+  // First check shortly after load, in case connectivity is already back.
+  setTimeout(function () { attemptReconnect(false); }, 1000);
+})();
+</script>
+
+</body>
+</html>
