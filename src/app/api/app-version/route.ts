@@ -5,8 +5,8 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   return NextResponse.json({
-    latestVersionCode: 5,
-    minVersionCode: 4,
+    latestVersionCode: 6,
+    minVersionCode: 5,
     downloadUrl:
       "https://yzxmxw1es97h5xoh.public.blob.vercel-storage.com/apk/masjid-noor-aliman.apk",
   });
