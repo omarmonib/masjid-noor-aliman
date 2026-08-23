@@ -11,25 +11,17 @@ import com.getcapacitor.BridgeWebViewClient;
 
 public class MainActivity extends BridgeActivity {
 
-    // Synced from capacitor-www/offline.html into android assets on `cap sync`
-    // (webDir: "capacitor-www" in capacitor.config.ts -> android/app/src/main/assets/public/)
     private static final String OFFLINE_URL = "file:///android_asset/public/offline.html";
 
     private boolean showingOffline = false;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(AdhanAlarmPlugin.class);
         super.onCreate(savedInstanceState);
         attachOfflineFallbackClient();
     }
 
-    /**
-     * Wraps Capacitor's own BridgeWebViewClient so the bridge/plugin
-     * message handling keeps working exactly as before, but intercepts
-     * main-frame connectivity errors before Chromium renders its native
-     * net::ERR_* interstitial, and shows a local bundled Arabic offline
-     * page instead.
-     */
     private void attachOfflineFallbackClient() {
         WebView webView = getBridge().getWebView();
 
@@ -46,9 +38,6 @@ public class MainActivity extends BridgeActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-                // Once any non-offline page finishes loading (i.e. we're
-                // back online and the retry succeeded), allow future
-                // errors to trigger the offline page again.
                 if (url == null || !url.contains("offline.html")) {
                     showingOffline = false;
                 }

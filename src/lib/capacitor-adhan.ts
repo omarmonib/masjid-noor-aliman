@@ -3,13 +3,17 @@
 import { Capacitor } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { getNotificationEventsForOffset } from "@/lib/prayer-schedule";
+import { AdhanAlarm } from "@/lib/adhan-native-alarm";
 
-const BASE_ID = 5000; // reserved id range for adhan notifications
-const CONFIRM_ID = 4999; // fixed id reused for the on/off confirmation
-const DAYS_AHEAD = 7; // schedule a week out so alerts survive the app staying closed
+const BASE_ID = 5000;
+const FULL_ALARM_ID_BASE = 6000;
+const CONFIRM_ID = 4999;
+const DAYS_AHEAD = 7;
 const ENABLED_KEY = "adhan-audio-enabled";
 const VOICE_KEY = "adhan-voice-choice";
-const CHANNEL_PREFIX = "adhan-";
+const CHANNEL_PREFIX = "adhan-v2-";
+
+const NOTIFICATION_SOUND = "adhan_short.wav";
 
 export const ADHAN_VOICES = [
   {
@@ -74,23 +78,19 @@ function channelId(voiceId: AdhanVoiceId, fajr: boolean) {
   return `${CHANNEL_PREFIX}${voiceId}${fajr ? "-fajr" : ""}`;
 }
 
-// Android locks a channel's sound the moment it's first created — recreating
-// the same channel id with a different sound is silently ignored. So we
-// pre-create one channel per voice per variant (6 total) exactly once, and
-// just pick the right existing channel per event from then on.
 async function ensureChannels() {
   for (const v of ADHAN_VOICES) {
     await LocalNotifications.createChannel({
       id: channelId(v.id, false),
       name: `Adhan — ${v.labelEn}`,
-      sound: v.file,
+      sound: NOTIFICATION_SOUND,
       importance: 5,
       vibration: true,
     });
     await LocalNotifications.createChannel({
       id: channelId(v.id, true),
       name: `Adhan (Fajr) — ${v.labelEn}`,
-      sound: v.fajrFile,
+      sound: NOTIFICATION_SOUND,
       importance: 5,
       vibration: true,
     });
@@ -109,6 +109,23 @@ async function clearOurs() {
   }
 }
 
+async function clearOurFullPlaybackAlarms() {
+  if (!isNativeApp()) return;
+  try {
+    await AdhanAlarm.cancelAll();
+  } catch (e) {
+    console.warn("[capacitor-adhan] cancelAll (native full-playback alarms) failed:", e);
+  }
+}
+
+const PRAYER_LABELS_AR: Record<string, string> = {
+  fajr: "الفجر",
+  dhuhr: "الظهر",
+  asr: "العصر",
+  maghrib: "المغرب",
+  isha: "العشاء",
+};
+
 export async function scheduleNativeAdhanNotifications() {
   if (!isNativeApp()) return;
 
@@ -117,8 +134,10 @@ export async function scheduleNativeAdhanNotifications() {
 
   await ensureChannels();
   await clearOurs();
+  await clearOurFullPlaybackAlarms();
 
   const voiceId = getSelectedVoice();
+  const voice = ADHAN_VOICES.find((v) => v.id === voiceId) ?? ADHAN_VOICES[0];
   const now = Date.now();
   const upcoming = Array.from({ length: DAYS_AHEAD }, (_, i) => i)
     .flatMap((offset) => getNotificationEventsForOffset(offset))
@@ -126,28 +145,46 @@ export async function scheduleNativeAdhanNotifications() {
 
   const notifications = upcoming.slice(0, 250).map((event, i) => {
     const isFajr = event.tag.startsWith("fajr-");
-    const voice = ADHAN_VOICES.find((v) => v.id === voiceId) ?? ADHAN_VOICES[0];
     return {
       id: BASE_ID + i,
       title: event.title,
       body: event.body,
-      // allowWhileIdle asks Android to use an EXACT alarm that still fires
-      // during Doze/App Standby — without it, delivery gets batched and
-      // delayed until the app is reopened.
       schedule: { at: event.time, allowWhileIdle: true },
-      sound: isFajr ? voice.fajrFile : voice.file,
+      sound: NOTIFICATION_SOUND,
       smallIcon: "ic_stat_icon",
       channelId: channelId(voice.id, isFajr),
     };
   });
 
-  if (notifications.length === 0) return;
-  await LocalNotifications.schedule({ notifications });
+  if (notifications.length > 0) {
+    await LocalNotifications.schedule({ notifications });
+  }
+
+  const fullAlarms = upcoming.slice(0, 250).map((event, i) => {
+    const isFajr = event.tag.startsWith("fajr-");
+    const rawKey = event.tag.split("-")[0];
+    const label = PRAYER_LABELS_AR[rawKey] || "";
+    return {
+      id: FULL_ALARM_ID_BASE + i,
+      timeMillis: event.time.getTime(),
+      voiceFile: isFajr ? voice.fajrFile : voice.file,
+      prayerLabel: label ? `جارٍ تشغيل أذان ${label}` : "جارٍ تشغيل الأذان",
+    };
+  });
+
+  if (fullAlarms.length > 0) {
+    try {
+      await AdhanAlarm.scheduleAlarms({ alarms: fullAlarms });
+    } catch (e) {
+      console.warn("[capacitor-adhan] scheduleAlarms (native full-playback) failed:", e);
+    }
+  }
 }
 
 export async function cancelNativeAdhanNotifications() {
   if (!isNativeApp()) return;
   await clearOurs();
+  await clearOurFullPlaybackAlarms();
 }
 
 async function confirmToggle(enabled: boolean, isAr: boolean) {
