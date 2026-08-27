@@ -403,6 +403,7 @@ export default function MediaManager({ locale }: { locale: string }) {
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     
+                    <a
                       href={item.url}
                       target="_blank"
                       rel="noopener noreferrer"
