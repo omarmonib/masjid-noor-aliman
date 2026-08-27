@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:background="@drawable/bg_adhan_fullscreen"
+    android:padding="32dp">
+
+    <ImageView
+        android:layout_width="88dp"
+        android:layout_height="88dp"
+        android:layout_marginBottom="20dp"
+        android:src="@drawable/ic_mosque_silhouette"
+        android:contentDescription="@null"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="مسجد نور الإيمان"
+        android:textColor="#FFFFFF"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp"/>
+
+    <TextView
+        android:id="@+id/adhanSubtitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#E5E5E5"
+        android:textSize="15sp"
+        android:layout_marginBottom="20dp"
+        tools:text="حان الآن وقت الصلاة"/>
+
+    <TextView
+        android:id="@+id/adhanPrayerName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#C9A84C"
+        android:textSize="34sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        tools:text="أذان الظهر"/>
+
+    <TextView
+        android:id="@+id/adhanPrayerTime"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#FFFFFF"
+        android:textSize="22sp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="20dp"
+        tools:text="12:59 م"/>
+
+    <TextView
+        android:id="@+id/adhanPlayingIndicator"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#FFFFFF"
+        android:textSize="15sp"
+        android:background="#331B6B4A"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="8dp"
+        android:layout_marginBottom="48dp"
+        tools:text="🔊 الأذان يُبَث الآن"/>
+
+    <Button
+        android:id="@+id/adhanStopButton"
+        android:layout_width="match_parent"
+        android:layout_height="68dp"
+        android:text="إيقاف الأذان"
+        android:textSize="19sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:background="@drawable/bg_stop_button"
+        android:elevation="6dp"/>
+
+</LinearLayout>

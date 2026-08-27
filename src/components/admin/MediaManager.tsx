@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { upload } from "@vercel/blob/client";
 import { MEDIA_TYPES, type MediaItem } from "@/lib/media";
 import type { Speaker } from "@/lib/speakers";
 
@@ -21,6 +22,7 @@ export default function MediaManager({ locale }: { locale: string }) {
   const [externalUrl, setExternalUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -70,32 +72,65 @@ export default function MediaManager({ locale }: { locale: string }) {
     }
 
     setSubmitting(true);
+    setUploadProgress(0);
 
-    const formData = new FormData();
-    formData.append("titleAr", titleAr.trim());
-    if (titleEn.trim()) formData.append("titleEn", titleEn.trim());
-    formData.append("type", type);
-    if (speakerId) {
-      formData.append("speakerId", speakerId);
-    } else if (speakerFreeText.trim()) {
-      formData.append("speaker", speakerFreeText.trim());
+    try {
+      let finalUrl = externalUrl.trim();
+
+      if (file) {
+        // Uploads directly from the browser to Vercel Blob storage,
+        // bypassing our own API route's body entirely — this removes the
+        // old server body-size limit that blocked large lesson/sermon
+        // recordings and forced uploading elsewhere first.
+        const blob = await upload(`media/${file.name}`, file, {
+          access: "public",
+          handleUploadUrl: "/api/media/upload",
+          onUploadProgress: (progress) => {
+            setUploadProgress(Math.round(progress.percentage));
+          },
+        });
+        finalUrl = blob.url;
+      }
+
+      const submitData = new FormData();
+      submitData.append("titleAr", titleAr.trim());
+      if (titleEn.trim()) submitData.append("titleEn", titleEn.trim());
+      submitData.append("type", type);
+      if (speakerId) {
+        submitData.append("speakerId", speakerId);
+      } else if (speakerFreeText.trim()) {
+        submitData.append("speaker", speakerFreeText.trim());
+      }
+      if (description.trim())
+        submitData.append("description", description.trim());
+      submitData.append("externalUrl", finalUrl);
+
+      const res = await fetch("/api/media", {
+        method: "POST",
+        body: submitData,
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || (isAr ? "حدث خطأ" : "Something went wrong"));
+        return;
+      }
+
+      setSuccess(isAr ? "تم الرفع بنجاح" : "Uploaded successfully");
+      resetForm();
+      load();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : isAr
+            ? "فشل رفع الملف"
+            : "Upload failed",
+      );
+    } finally {
+      setSubmitting(false);
+      setUploadProgress(0);
     }
-    if (description.trim()) formData.append("description", description.trim());
-    if (file) formData.append("file", file);
-    if (externalUrl.trim()) formData.append("externalUrl", externalUrl.trim());
-
-    const res = await fetch("/api/media", { method: "POST", body: formData });
-    const data = await res.json();
-    setSubmitting(false);
-
-    if (!res.ok) {
-      setError(data.error || (isAr ? "حدث خطأ" : "Something went wrong"));
-      return;
-    }
-
-    setSuccess(isAr ? "تم الرفع بنجاح" : "Uploaded successfully");
-    resetForm();
-    load();
   };
 
   const handleDelete = async (id: string) => {
@@ -109,7 +144,11 @@ export default function MediaManager({ locale }: { locale: string }) {
     filter === "all" ? items : items.filter((i) => i.type === filter);
 
   const speakerLabel = (item: MediaItem) =>
-    item.speakerRef ? (isAr ? item.speakerRef.nameAr : item.speakerRef.nameEn || item.speakerRef.nameAr) : item.speaker;
+    item.speakerRef
+      ? isAr
+        ? item.speakerRef.nameAr
+        : item.speakerRef.nameEn || item.speakerRef.nameAr
+      : item.speaker;
 
   return (
     <div className="space-y-6" dir={isAr ? "rtl" : "ltr"}>
@@ -181,7 +220,9 @@ export default function MediaManager({ locale }: { locale: string }) {
                 onChange={(e) => setSpeakerId(e.target.value)}
                 className="w-full border border-gray-200 rounded-xl px-4 py-2.5 font-arabic text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
               >
-                <option value="">{isAr ? "— بدون / كتابة اسم حر —" : "— None / free text —"}</option>
+                <option value="">
+                  {isAr ? "— بدون / كتابة اسم حر —" : "— None / free text —"}
+                </option>
                 {speakers.map((s) => (
                   <option key={s.id} value={s.id}>
                     {isAr ? s.nameAr : s.nameEn || s.nameAr}
@@ -193,7 +234,9 @@ export default function MediaManager({ locale }: { locale: string }) {
                   type="text"
                   value={speakerFreeText}
                   onChange={(e) => setSpeakerFreeText(e.target.value)}
-                  placeholder={isAr ? "أو اكتب اسماً مباشرة" : "or type a name directly"}
+                  placeholder={
+                    isAr ? "أو اكتب اسماً مباشرة" : "or type a name directly"
+                  }
                   className="w-full mt-2 border border-gray-200 rounded-xl px-4 py-2.5 font-arabic text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                   dir="rtl"
                 />
@@ -225,6 +268,21 @@ export default function MediaManager({ locale }: { locale: string }) {
                 onChange={(e) => setFile(e.target.files?.[0] || null)}
                 className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2"
               />
+              {submitting && file && (
+                <div className="mt-2">
+                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary transition-all duration-200"
+                      style={{ width: `${uploadProgress}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-400 font-arabic mt-1">
+                    {isAr
+                      ? `جارٍ الرفع... ${uploadProgress}%`
+                      : `Uploading... ${uploadProgress}%`}
+                  </p>
+                </div>
+              )}
             </div>
             <div>
               <label className="block font-arabic text-sm text-gray-600 mb-1">
@@ -316,7 +374,9 @@ export default function MediaManager({ locale }: { locale: string }) {
                   className="flex items-center justify-between gap-4 px-6 py-4"
                 >
                   <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <span className="text-2xl flex-shrink-0">{meta?.icon}</span>
+                    <span className="text-2xl flex-shrink-0">
+                      {meta?.icon}
+                    </span>
                     <div className="min-w-0">
                       <p
                         className="font-arabic font-bold text-gray-800 truncate"
@@ -343,7 +403,6 @@ export default function MediaManager({ locale }: { locale: string }) {
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     
-                    <a
                       href={item.url}
                       target="_blank"
                       rel="noopener noreferrer"

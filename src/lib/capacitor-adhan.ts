@@ -20,22 +20,22 @@ export const ADHAN_VOICES = [
     id: "nabawi",
     labelAr: "الشيخ عادل كاتب — المسجد النبوي",
     labelEn: "Sheikh Adel Kateb — Masjid An-Nabawi",
-    file: "adhan_nabawi.wav",
-    fajrFile: "adhan_nabawi_fajr.wav",
+    file: "adhan_nabawi.m4a",
+    fajrFile: "adhan_nabawi_fajr.m4a",
   },
   {
     id: "masri",
     labelAr: "الشيخ عبد الباسط عبد الصمد — مصر",
     labelEn: "Sheikh Abdul Basit Abdul Samad — Egypt",
-    file: "adhan_masri.wav",
-    fajrFile: "adhan_masri_fajr.wav",
+    file: "adhan_masri.m4a",
+    fajrFile: "adhan_masri_fajr.m4a",
   },
   {
     id: "makkah",
     labelAr: "الشيخ علي ملا — الحرم المكي",
     labelEn: "Sheikh Ali Mulla — Masjid Al-Haram",
-    file: "adhan_makkah.wav",
-    fajrFile: "adhan_makkah_fajr.wav",
+    file: "adhan_makkah.m4a",
+    fajrFile: "adhan_makkah_fajr.m4a",
   },
   {
     id: "short",
@@ -126,6 +126,15 @@ const PRAYER_LABELS_AR: Record<string, string> = {
   isha: "العشاء",
 };
 
+function formatArabicTime(date: Date): string {
+  const h = date.getHours();
+  const m = date.getMinutes();
+  const period = h >= 12 ? "م" : "ص";
+  let h12 = h % 12;
+  if (h12 === 0) h12 = 12;
+  return `${String(h12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${period}`;
+}
+
 export async function scheduleNativeAdhanNotifications() {
   if (!isNativeApp()) return;
 
@@ -169,6 +178,8 @@ export async function scheduleNativeAdhanNotifications() {
       timeMillis: event.time.getTime(),
       voiceFile: isFajr ? voice.fajrFile : voice.file,
       prayerLabel: label ? `جارٍ تشغيل أذان ${label}` : "جارٍ تشغيل الأذان",
+      prayerName: label,
+      prayerTime: formatArabicTime(event.time),
     };
   });
 

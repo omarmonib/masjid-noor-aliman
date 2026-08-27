@@ -23,12 +23,16 @@ public class AdhanAlarmScheduler {
         public long timeMillis;
         public String voiceFile;
         public String prayerLabel;
+        public String prayerName;
+        public String prayerTime;
 
-        Entry(int id, long timeMillis, String voiceFile, String prayerLabel) {
+        Entry(int id, long timeMillis, String voiceFile, String prayerLabel, String prayerName, String prayerTime) {
             this.id = id;
             this.timeMillis = timeMillis;
             this.voiceFile = voiceFile;
             this.prayerLabel = prayerLabel;
+            this.prayerName = prayerName;
+            this.prayerTime = prayerTime;
         }
     }
 
@@ -135,6 +139,8 @@ public class AdhanAlarmScheduler {
         intent.putExtra("id", e.id);
         intent.putExtra("voiceFile", e.voiceFile);
         intent.putExtra("prayerLabel", e.prayerLabel);
+        intent.putExtra("prayerName", e.prayerName);
+        intent.putExtra("prayerTime", e.prayerTime);
         return PendingIntent.getBroadcast(
                 context, e.id, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
@@ -151,6 +157,8 @@ public class AdhanAlarmScheduler {
                 o.put("timeMillis", e.timeMillis);
                 o.put("voiceFile", e.voiceFile);
                 o.put("prayerLabel", e.prayerLabel);
+                o.put("prayerName", e.prayerName);
+                o.put("prayerTime", e.prayerTime);
                 arr.put(o);
             }
             prefs(context).edit().putString(KEY_SCHEDULE, arr.toString()).apply();
@@ -188,7 +196,9 @@ public class AdhanAlarmScheduler {
                         o.getInt("id"),
                         o.getLong("timeMillis"),
                         o.getString("voiceFile"),
-                        o.optString("prayerLabel", "")
+                        o.optString("prayerLabel", ""),
+                        o.optString("prayerName", ""),
+                        o.optString("prayerTime", "")
                 );
             }
             return result;

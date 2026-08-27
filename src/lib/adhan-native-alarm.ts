@@ -7,6 +7,8 @@ export interface AdhanAlarmEntry {
   timeMillis: number;
   voiceFile: string;
   prayerLabel: string;
+  prayerName: string;
+  prayerTime: string;
 }
 
 export interface AdhanAlarmPlugin {

@@ -25,6 +25,8 @@ public class AdhanAlarmPlugin extends Plugin {
         }
 
         try {
+            // JSArray extends JSONArray directly, so a plain upcast is
+            // correct here — there is no .toJSONArray() conversion method.
             JSONArray raw = alarmsArray;
             List<AdhanAlarmScheduler.Entry> entries = new ArrayList<>();
             for (int i = 0; i < raw.length(); i++) {
@@ -33,7 +35,9 @@ public class AdhanAlarmPlugin extends Plugin {
                         o.getInt("id"),
                         o.getLong("timeMillis"),
                         o.getString("voiceFile"),
-                        o.optString("prayerLabel", "")
+                        o.optString("prayerLabel", ""),
+                        o.optString("prayerName", ""),
+                        o.optString("prayerTime", "")
                 ));
             }
 

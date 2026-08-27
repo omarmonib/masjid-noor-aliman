@@ -13,6 +13,8 @@
 
 <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 
+<uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
+
     <application
         android:networkSecurityConfig="@xml/network_security_config"
         android:allowBackup="true"
@@ -44,18 +46,30 @@
 
         </activity>
 
+        <!-- PERMANENT: must always stay false -->
+        <activity
+            android:name=".AdhanFullScreenActivity"
+            android:exported="false"
+            android:launchMode="singleInstance"
+            android:excludeFromRecents="true"
+            android:theme="@style/AppTheme.AdhanFullScreen"/>
+
+        <!-- PERMANENT: must always stay false -->
         <receiver android:name=".AdhanAlarmReceiver" android:exported="false"/>
 
+        <!-- PERMANENT: must always stay true (OS needs to reach it after reboot) -->
         <receiver android:name=".BootCompletedReceiver" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>
             </intent-filter>
         </receiver>
 
+        <!-- TEMPORARY FOR TESTING ONLY: exported=true here, must revert to
+             false before this becomes a real release build. -->
         <service
             android:name=".AdhanPlaybackService"
             android:foregroundServiceType="mediaPlayback"
-            android:exported="false"/>
+            android:exported="true"/>
 
         <provider
             android:name="androidx.core.content.FileProvider"
