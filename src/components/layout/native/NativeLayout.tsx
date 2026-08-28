@@ -162,7 +162,7 @@ function NativeLayoutInner({ locale, children }: Props) {
           minHeight: "100vh",
         }}
       >
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="popLayout">
           <motion.div
             key={pathname}
             initial={{ opacity: 0, y: 8 }}
