@@ -12,9 +12,13 @@ export interface AdhanAlarmEntry {
 }
 
 export interface AdhanAlarmPlugin {
-  scheduleAlarms(options: { alarms: AdhanAlarmEntry[] }): Promise<{ scheduled: number; exact: boolean }>;
+  scheduleAlarms(options: {
+    alarms: AdhanAlarmEntry[];
+  }): Promise<{ scheduled: number; exact: boolean }>;
   cancelAlarms(options: { ids: number[] }): Promise<void>;
   cancelAll(): Promise<void>;
+  checkFullScreenIntentPermission(): Promise<{ granted: boolean }>;
+  openFullScreenIntentSettings(): Promise<void>;
 }
 
 export const AdhanAlarm = registerPlugin<AdhanAlarmPlugin>("AdhanAlarm");

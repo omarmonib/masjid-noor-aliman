@@ -137,6 +137,10 @@ public class AdhanAlarmScheduler {
     private static PendingIntent buildPendingIntent(Context context, Entry e) {
         Intent intent = new Intent(context, AdhanAlarmReceiver.class);
         intent.putExtra("id", e.id);
+        // Original scheduled time, so the receiver can detect a late/deferred
+        // delivery (e.g. OEM battery management holding the alarm until the
+        // device wakes) and skip a stale "catch-up" Adhan playback.
+        intent.putExtra("timeMillis", e.timeMillis);
         intent.putExtra("voiceFile", e.voiceFile);
         intent.putExtra("prayerLabel", e.prayerLabel);
         intent.putExtra("prayerName", e.prayerName);

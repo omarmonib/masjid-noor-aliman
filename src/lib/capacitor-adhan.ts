@@ -11,9 +11,13 @@ const CONFIRM_ID = 4999;
 const DAYS_AHEAD = 7;
 const ENABLED_KEY = "adhan-audio-enabled";
 const VOICE_KEY = "adhan-voice-choice";
-const CHANNEL_PREFIX = "adhan-v2-";
 
-const NOTIFICATION_SOUND = "adhan_short.wav";
+// Bumped from "adhan-v2-": Android permanently locks a channel's sound
+// after first creation, so removing the short-Adhan sound requires a new
+// channel id — not just removing the `sound` field in createChannel below.
+const CHANNEL_PREFIX = "adhan-v3-";
+
+const FS_INTENT_PROMPT_KEY = "adhan-fullscreen-intent-prompted";
 
 export const ADHAN_VOICES = [
   {
@@ -83,15 +87,16 @@ async function ensureChannels() {
     await LocalNotifications.createChannel({
       id: channelId(v.id, false),
       name: `Adhan — ${v.labelEn}`,
-      sound: NOTIFICATION_SOUND,
-      importance: 5,
+      // Importance 2 (LOW) is the only Android-guaranteed way to force a
+      // channel to be silent regardless of any sound configuration — the
+      // short-Adhan sound has been intentionally removed from this flow.
+      importance: 2,
       vibration: true,
     });
     await LocalNotifications.createChannel({
       id: channelId(v.id, true),
       name: `Adhan (Fajr) — ${v.labelEn}`,
-      sound: NOTIFICATION_SOUND,
-      importance: 5,
+      importance: 2,
       vibration: true,
     });
   }
@@ -114,7 +119,43 @@ async function clearOurFullPlaybackAlarms() {
   try {
     await AdhanAlarm.cancelAll();
   } catch (e) {
-    console.warn("[capacitor-adhan] cancelAll (native full-playback alarms) failed:", e);
+    console.warn(
+      "[capacitor-adhan] cancelAll (native full-playback alarms) failed:",
+      e,
+    );
+  }
+}
+
+// Android 14+ restricts USE_FULL_SCREEN_INTENT to apps explicitly granted
+// "Full-screen notifications" special access. Without it, the full-screen
+// Adhan alert silently degrades to a normal heads-up notification and the
+// volume-button mute handling in AdhanFullScreenActivity never runs (its
+// onResume/onKeyDown never fire because the activity never launches).
+async function ensureFullScreenIntentPermission() {
+  if (!isNativeApp()) return;
+  try {
+    const { granted } = await AdhanAlarm.checkFullScreenIntentPermission();
+    if (granted) return;
+    if (localStorage.getItem(FS_INTENT_PROMPT_KEY) === "1") return;
+    localStorage.setItem(FS_INTENT_PROMPT_KEY, "1");
+
+    const isAr =
+      typeof document !== "undefined" && document.documentElement.lang === "ar";
+
+    const proceed = confirm(
+      isAr
+        ? "لضمان ظهور تنبيه الأذان على شاشة القفل، يرجى تفعيل إذن (الإشعارات على كامل الشاشة) لهذا التطبيق."
+        : "To make sure the Adhan alert appears over the lock screen, please enable the 'Full-screen notifications' permission for this app.",
+    );
+
+    if (proceed) {
+      await AdhanAlarm.openFullScreenIntentSettings();
+    }
+  } catch (e) {
+    console.warn(
+      "[capacitor-adhan] full-screen intent permission check failed:",
+      e,
+    );
   }
 }
 
@@ -142,6 +183,7 @@ export async function scheduleNativeAdhanNotifications() {
   if (!granted) return;
 
   await ensureChannels();
+  await ensureFullScreenIntentPermission();
   await clearOurs();
   await clearOurFullPlaybackAlarms();
 
@@ -159,7 +201,6 @@ export async function scheduleNativeAdhanNotifications() {
       title: event.title,
       body: event.body,
       schedule: { at: event.time, allowWhileIdle: true },
-      sound: NOTIFICATION_SOUND,
       smallIcon: "ic_stat_icon",
       channelId: channelId(voice.id, isFajr),
     };
@@ -187,7 +228,10 @@ export async function scheduleNativeAdhanNotifications() {
     try {
       await AdhanAlarm.scheduleAlarms({ alarms: fullAlarms });
     } catch (e) {
-      console.warn("[capacitor-adhan] scheduleAlarms (native full-playback) failed:", e);
+      console.warn(
+        "[capacitor-adhan] scheduleAlarms (native full-playback) failed:",
+        e,
+      );
     }
   }
 }

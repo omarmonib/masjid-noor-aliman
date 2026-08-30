@@ -1,9 +1,9 @@
 package com.masjidnooraliman.app;
 
 import android.content.Intent;
-import android.media.AudioManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.KeyEvent;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.TextView;
@@ -59,17 +59,41 @@ public class AdhanFullScreenActivity extends AppCompatActivity implements AdhanP
     protected void onResume() {
         super.onResume();
         AdhanPlaybackService.setStopListener(this);
-        // Makes the hardware volume rocker adjust the Alarm stream while
-        // this screen is focused — the same stream our MediaPlayer plays
-        // through, matching normal Android alarm-app behavior.
-        setVolumeControlStream(AudioManager.STREAM_ALARM);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
         AdhanPlaybackService.setStopListener(null);
-        setVolumeControlStream(AudioManager.USE_DEFAULT_STREAM_TYPE);
+    }
+
+    /**
+     * One-press mute: while the Adhan is playing and this screen has focus,
+     * a single press of either hardware volume key silences it immediately —
+     * matching standard Islamic-prayer-app behavior (and Android's own
+     * built-in "silence a ringing call with the volume key" pattern). The
+     * event is fully consumed on both down and up, so Android's default
+     * "adjust stream volume" action never runs — the user's actual system
+     * Alarm volume is left completely untouched, before, during, and after
+     * the Adhan.
+     */
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+            if (event.getRepeatCount() == 0) {
+                stopAdhanAndClose();
+            }
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
+    public boolean onKeyUp(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+            return true;
+        }
+        return super.onKeyUp(keyCode, event);
     }
 
     private void stopAdhanAndClose() {

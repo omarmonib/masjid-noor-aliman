@@ -13,6 +13,13 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.List;
 
+import android.content.Intent;
+import android.net.Uri;
+import android.os.Build;
+import android.provider.Settings;
+
+import androidx.core.app.NotificationManagerCompat;
+
 @CapacitorPlugin(name = "AdhanAlarm")
 public class AdhanAlarmPlugin extends Plugin {
 
@@ -82,5 +89,42 @@ public class AdhanAlarmPlugin extends Plugin {
     public void cancelAll(PluginCall call) {
         AdhanAlarmScheduler.cancelAllPersisted(getContext());
         call.resolve();
+    }
+
+    /**
+     * Android 14+ (API 34) restricts USE_FULL_SCREEN_INTENT: apps must be
+     * granted "Full-screen notifications" special access, or the full-screen
+     * Adhan alert silently degrades to a normal heads-up notification and
+     * AdhanFullScreenActivity (and its volume-button mute handling) never runs.
+     */
+    @PluginMethod
+    public void checkFullScreenIntentPermission(PluginCall call) {
+        boolean granted = true;
+        if (Build.VERSION.SDK_INT >= 34) {
+            NotificationManagerCompat nm = NotificationManagerCompat.from(getContext());
+            granted = nm.canUseFullScreenIntent();
+        }
+        JSObject result = new JSObject();
+        result.put("granted", granted);
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void openFullScreenIntentSettings(PluginCall call) {
+        try {
+            Intent intent;
+            if (Build.VERSION.SDK_INT >= 34) {
+                intent = new Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT);
+                intent.setData(Uri.parse("package:" + getContext().getPackageName()));
+            } else {
+                intent = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+                intent.putExtra(Settings.EXTRA_APP_PACKAGE, getContext().getPackageName());
+            }
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("Could not open full-screen intent settings: " + e.getMessage(), e);
+        }
     }
 }
